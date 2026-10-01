@@ -16,6 +16,8 @@ from openpyxl.utils import get_column_letter as CL
 from openpyxl.worksheet.formula import ArrayFormula
 from pptx import Presentation
 
+from ppt_sheets import PIN, P3_GRID, P3_GRID_FIRST, P3_TOTAL, add_ppt_sheets, pin_ref, ship_cell
+
 SRC1, SRC2, OUT = sys.argv[1:4]
 SRC_NAME = "SKTC_CpZr_Capacity_Reflux_Roadmap_2027_2028.pptx (첨부 원본·수정본)"
 USER = "사용자 제공 조건 (2026-10-01 지시)"
@@ -107,11 +109,19 @@ def sec(label):
 
 
 KIND = {"확정": "in", "제공": "in", "계획": "in", "추정": "est", "가정": "est", "미확인": "unk", "검토안": "rev",
-        "수식": "calc", "구두": "oral"}
+        "수식": "calc", "구두": "oral", "연결": "link"}
 
 
 def inp(key, item, val, unit, scope, kind, src, note="", nf=None):
     global r
+    if key in PIN:
+        sheet, cell, _, pnf = PIN[key]
+        ref = pin_ref(key)
+        val = f'=IF(ISBLANK({ref}),"",{ref})'
+        kind = "연결"; src = f"{sheet} {cell} 입력"
+        note = f"수정은 {sheet} {cell}에서" + (f" · {note}" if note else "")
+        if pnf and pnf.startswith("yyyy"):
+            nf = "d"
     vals = [item, val, unit, scope, {"구두": "구두 언급"}.get(kind, kind), src, note]
     for j, v in enumerate(vals):
         c = wsI.cell(row=r, column=1 + j, value=v)
@@ -152,7 +162,7 @@ inp("t_mix", "Mix·리사이클 준비 (설비시간 사용)", None, "h/Batch", 
 sec("C. 충진 · OQC (필터는 충진에 포함)")
 inp("t_5g", "5 Gal 충진 (글로브 박스)", 2, "h/병", "하이닉스·CXMT 20 kg/병", "제공", USER, "근거 없이 1 h로 변경 금지", "h")
 inp("n_5g_b", "한 Batch 5 Gal 충진 병수 (참고)", 9, "병/Batch", "약 9병", "제공", USER, "9 × 20 = 180 kg", "int")
-inp("t_5g_b", "한 Batch 5 Gal 충진시간 (참고)", 18, "h/Batch", "약 9병 기준", "제공", USER, "", "h")
+inp("t_5g_b", "한 Batch 5 Gal 충진시간", f"={R('t_5g')}*{R('n_5g_b')}", "h/Batch", "병당 h × 병수 (약 9병 18 h)", "수식", "수식", "", "h")
 inp("chk_5g", "5 Gal 정합 확인 (병수×병당)", f"={R('n_5g_b')}*{R('t_5g')}", "h/Batch", "18 h와 일치", "수식", "수식", "", "h")
 inp("t_oqc5", "5 Gal OQC·출하 작업", 2, "h/9병", "9병 합계 2 h", "제공", USER, "물류 운송시간 별도", "h")
 inp("t_oqc2", "200 L OQC·출하 작업", 2, "h/용기", "1용기 2 h", "제공", USER, "물류 운송시간 별도", "h")
@@ -243,17 +253,6 @@ inp("y_ez", "이지켐 합격률 (색도 포함)", None, "%", "", "미확인", "
 inp("y_hs", "한솔 합격률", None, "%", "", "미확인", "-")
 inp("prio", "하이닉스 외 고객 우선순위", None, "-", "CXMT·이지켐·한솔", "미확인", "-", "미입력 시 잔여량을 출하 비율로 배분 (우선순위 가정 없음)")
 
-sec("K. 출하계획 기준값 (2027 계획 · 2028 가정)")
-inp("hx27", "하이닉스 2027 연간", 22720, "kg/년", "월 = 연간 ÷ 12 (표시만 반올림)", "계획", USER, "", "kg0")
-inp("cx27a", "CXMT 2027 3~6월", 580, "kg/월", "1~2월 0", "계획", USER, "", "kg0")
-inp("cx27b", "CXMT 2027 7~12월", 780, "kg/월", "", "계획", USER, "연 7,000 kg", "kg0")
-inp("ez27a", "이지켐 2027 1~6월", 560, "kg/월", "", "계획", USER, "4용기", "kg0")
-inp("ez27b", "이지켐 2027 7~12월", 1120, "kg/월", "", "계획", USER, "8용기 · 연 10,080 kg", "kg0")
-inp("hs27", "한솔 2027 월", 300, "kg/월", "1~12월", "계획", USER, "2용기 · 연 3,600 kg", "kg0")
-inp("hx28", "하이닉스 2028 연간", 22720, "kg/년", "2027 하반기 수준 유지 가정", "가정", USER, "확정 고객 수요 아님", "kg0")
-inp("cx28", "CXMT 2028 월", 780, "kg/월", "2027 하반기 수준 유지 가정", "가정", USER, "", "kg0")
-inp("ez28", "이지켐 2028 월", 840, "kg/월", "2028 가정 (사용자 수정 · 2027 하반기 1,120 아님)", "가정", "사용자 수정 지시 (2026-10-01)", "6용기/월 · 연 10,080 kg", "kg0")
-inp("hs28", "한솔 2028 월", 300, "kg/월", "2027 하반기 수준 유지 가정", "가정", USER, "", "kg0")
 last_input_row = r - 1
 wsI.auto_filter.ref = f"A5:G{last_input_row}"
 
@@ -282,18 +281,13 @@ def grow(label, year, vals, kind, cls, src, note, key, nf="kg"):
     r += 1
 
 
-grow("하이닉스", 2026, hx26, "in", "원자료 실적/계획 구분 미확인", USER, "", (2026, "hx"))
-grow("CXMT", 2026, None, "unk", "미제시", USER, "합계 제외 · 0으로 확정 안 함", (2026, "cx"))
-grow("이지켐", 2026, ez26, "in", "원자료 실적/계획 구분 미확인", USER, "9~12월 4용기", (2026, "ez"))
-grow("한솔", 2026, None, "unk", "미제시", USER, "합계 제외 · 0으로 확정 안 함", (2026, "hs"))
-grow("하이닉스", 2027, [f"={R('hx27')}/12"] * 12, "calc", "계획", USER, "22,720 ÷ 12", (2027, "hx"))
-grow("CXMT", 2027, [f"=IF({m+1}<3,0,IF({m+1}<7,{R('cx27a')},{R('cx27b')}))" for m in range(12)], "calc", "계획", USER, "1~2월 0 · 3~6월 580 · 7~12월 780", (2027, "cx"))
-grow("이지켐", 2027, [f"=IF({m+1}<7,{R('ez27a')},{R('ez27b')})" for m in range(12)], "calc", "계획", USER, "1~6월 560 · 7~12월 1,120", (2027, "ez"))
-grow("한솔", 2027, [f"={R('hs27')}"] * 12, "calc", "계획", USER, "월 300 kg (2용기)", (2027, "hs"))
-grow("하이닉스", 2028, [f"={R('hx28')}/12"] * 12, "calc", "가정", USER, "2027 하반기 수준 유지 가정", (2028, "hx"))
-grow("CXMT", 2028, [f"={R('cx28')}"] * 12, "calc", "가정", USER, "2027 하반기 수준 유지 가정", (2028, "cx"))
-grow("이지켐", 2028, [f"={R('ez28')}"] * 12, "calc", "가정", "사용자 수정 지시 (2026-10-01)", "월 840 kg 가정 (2027 하반기 수준과 다름)", (2028, "ez"))
-grow("한솔", 2028, [f"={R('hs28')}"] * 12, "calc", "가정", USER, "2027 하반기 수준 유지 가정", (2028, "hs"))
+for yr in (2026, 2027, 2028):
+    sheet_ = {2026: "P3_과거Batch_2026", 2027: "P4_2027_월별", 2028: "P5_2028_월별"}[yr]
+    cls_ = {2026: "원자료 실적/계획 구분 미확인", 2027: "계획", 2028: "가정 (확정 수요 아님)"}[yr]
+    for cust, lab in (("hx", "하이닉스"), ("cx", "CXMT"), ("ez", "이지켐"), ("hs", "한솔")):
+        refs = [ship_cell(yr, cust, m) for m in range(1, 13)]
+        nt_ = "미제시 시 공란 — 합계 제외" if (yr == 2026 and cust in ("cx", "hs")) else ""
+        grow(lab, yr, [f'=IF(ISBLANK({x}),"",{x})' for x in refs], "link", cls_, f"{sheet_} 입력 (연결)", nt_, (yr, cust))
 for yr in (2026, 2027, 2028):
     rows_ = [SHIP[(yr, k)] for k in ("hx", "cx", "ez", "hs")]
     style_cell(wsI.cell(row=r, column=1, value=f"{yr} 합계" + (" (제시분: 하이닉스+이지켐)" if yr == 2026 else "")), "text", bold=True)
@@ -346,24 +340,39 @@ for sh in n1.shapes:
             x = (sh.left + sh.width / 2) / 914400
             chart[n] = (round(1 + (x - 1.012) / 0.17110), {"FF7900": "주황", "7F7F7F": "회색"}.get(str(sh.fill.fore_color.rgb), "?"))
 B0 = 6
-BL = B0 + len(L) - 1
-for i, (n, m, d) in enumerate(L):
+NMAX = 130
+BL = B0 + (NMAX - 37)
+Ld = {n: (m, d) for n, m, d in L}
+G_, G1_ = P3_GRID, P3_GRID_FIRST
+for i, n in enumerate(range(37, NMAX + 1)):
     rr = B0 + i
-    tok = f"{m}/{d} #{n}"
-    nt = f"{m}/{d}" if (tok in notes1 and tok in notes2) else ("원본만" if tok in notes1 else ("수정본만" if tok in notes2 else "미발견"))
-    vals = [i + 1, SRC_NAME, "3장 발표자 노트 (원본·수정본) · 원본 3장 분포도", n, dt.date(2026, m, d), None, None,
-            "생산계획 (원자료) — 실적 미검증", chart.get(n, (None, "?"))[1], None, nt, chart.get(n, (None,))[0], dt.date(2026, m, d)]
+    m, d = Ld.get(n, (None, None))
+    if m:
+        tok = f"{m}/{d} #{n}"
+        nt = f"{m}/{d}" if (tok in notes1 and tok in notes2) else ("원본만" if tok in notes1 else ("수정본만" if tok in notes2 else "미발견"))
+        meta = [chart.get(n, (None, "?"))[1], None, nt, chart.get(n, (None,))[0], dt.date(2026, m, d)]
+    else:
+        meta = [None, None, "-", None, None]
+    efx = (f'=IF(COUNTIF({G_},D{rr})=0,"",IF(COUNTIF({G_},D{rr})>1,"중복 입력",SUMPRODUCT(({G_}=D{rr})*'
+           f'DATE({R("hist_y")},ROW({G_})-ROW({G1_})+5,COLUMN({G_})-COLUMN({G1_})+1))))')
+    vals = [i + 1, SRC_NAME if m else "P3 달력 입력", "P3 달력 ← 원본 3장 노트·분포도" if m else "P3_과거Batch_2026 달력", n, efx, None, None,
+            "생산계획 (원자료) — 실적 미검증"] + meta
     for j, v in enumerate(vals):
-        style_cell(wsB.cell(row=rr, column=1 + j, value=v), "in" if j in (3, 4, 8, 10, 11, 12) else ("unk" if j in (5, 6, 9) else "text"))
+        style_cell(wsB.cell(row=rr, column=1 + j, value=v), "link" if j == 4 else ("in" if j in (3, 8, 10, 11, 12) else ("unk" if j in (5, 6, 9) else "text")))
     wsB.cell(row=rr, column=5).number_format = NF["d"]; wsB.cell(row=rr, column=13).number_format = NF["d"]
-    style_cell(wsB.cell(row=rr, column=14, value=f'=IF(AND(E{rr}=M{rr},DAY(E{rr})=L{rr},K{rr}=MONTH(E{rr})&"/"&DAY(E{rr})),"일치","차이 확인")'))
+    nfx = (f'=IF(AND(ISNUMBER(E{rr}),E{rr}=M{rr},DAY(E{rr})=L{rr},K{rr}=MONTH(E{rr})&"/"&DAY(E{rr})),"일치","차이 확인")' if m
+           else f'=IF(ISNUMBER(E{rr}),"신규 입력","")')
+    style_cell(wsB.cell(row=rr, column=14, value=nfx))
     occ = f"({R('t_prep')}+{R('t_ref')}+N({R('t_trocc')}))"
-    f = {15: f"=MONTH(E{rr})", 16: f"=IF(AND(D{rr}>{R('an_s')},D{rr}<={R('an_e')}),1,0)",
-         17: '="-"' if i == 0 else f'=IF(D{rr}-D{rr-1}=1,"연속","확인")',
-         18: f'=IF(COUNTIF($D${B0}:$D${BL},D{rr})>1,"중복","-")',
-         19: None if i == 0 else f"=E{rr}-E{rr-1}", 20: None if i == 0 else f'=IF(MONTH(E{rr})<>MONTH(E{rr-1}),"월 경계","")',
-         21: None if i == 0 else f"=S{rr}*24", 22: None if i == 0 else f"=MAX(0,(S{rr}-1)*24)", 23: None if i == 0 else f"=(S{rr}+1)*24",
-         24: f'=IF(ROW()-{B0}>={R("roll_k")},E{rr}-INDEX($E${B0}:$E${BL},ROW()-{B0}+1-{R("roll_k")}),"")',
+    f = {15: f'=IF(ISNUMBER(E{rr}),MONTH(E{rr}),"")', 16: f"=IF(AND(ISNUMBER(S{rr}),D{rr}>{R('an_s')},D{rr}<={R('an_e')}),1,0)",
+         17: '="-"' if i == 0 else f'=IF(AND(ISNUMBER(E{rr}),NOT(ISNUMBER(E{rr-1}))),"확인","")',
+         18: f'=IF(E{rr}="중복 입력","중복","-")',
+         19: None if i == 0 else f'=IF(AND(ISNUMBER(E{rr}),ISNUMBER(E{rr-1})),E{rr}-E{rr-1},"")',
+         20: None if i == 0 else f'=IF(ISNUMBER(S{rr}),IF(MONTH(E{rr})<>MONTH(E{rr-1}),"월 경계",""),"")',
+         21: None if i == 0 else f'=IF(ISNUMBER(S{rr}),S{rr}*24,"")', 22: None if i == 0 else f'=IF(ISNUMBER(S{rr}),MAX(0,(S{rr}-1)*24),"")',
+         23: None if i == 0 else f'=IF(ISNUMBER(S{rr}),(S{rr}+1)*24,"")',
+         24: (f'=IF(AND(ISNUMBER(E{rr}),ROW()-{B0}>={R("roll_k")}),IF(ISNUMBER(INDEX($E${B0}:$E${BL},ROW()-{B0}+1-{R("roll_k")})),'
+              f'E{rr}-INDEX($E${B0}:$E${BL},ROW()-{B0}+1-{R("roll_k")}),""),"")'),
          25: f'=IF(ISNUMBER(X{rr}),(X{rr}+1)*24/{R("roll_k")},"")',
          26: f'=IF(ISNUMBER(Y{rr}),IF(Y{rr}<{occ},"확인 필요: 점유 하한 미만",""),"")'}
     for col, fx in f.items():
@@ -378,9 +387,10 @@ header(wsB, S0, ["월", "번호 범위", "번호 개수", "원자료 Total", "�
                  "월 경계\n간격 수", "비고"], 1, "hdr", 40)
 E_ = f"$E${B0}:$E${BL}"; O_ = f"$O${B0}:$O${BL}"; P_ = f"$P${B0}:$P${BL}"; S_ = f"$S${B0}:$S${BL}"; D_ = f"$D${B0}:$D${BL}"; T_ = f"$T${B0}:$T${BL}"
 SUMROW = {}
-for k, (m, lab, tot, note) in enumerate([(5, "5월 (일부)", None, "#37·#38만 제공 — 주 추정 제외"), (6, "6월", 8, ""), (7, "7월", 11, ""),
-                                         (8, "8월", 8, ""), (9, "9월", 8, ""), (10, "10월", 11, "")]):
+MONTHS_ = [(5, "5월 (일부)", "#37·#38만 제공 — 주 추정 제외")] + [(m_, f"{m_}월", "") for m_ in range(6, 13)]
+for k, (m, lab, note) in enumerate(MONTHS_):
     rr = S0 + 1 + k; SUMROW[m] = rr
+    tot = f'=IF(ISNUMBER({P3_TOTAL[m]}),{P3_TOTAL[m]},"")'
     cells = {1: lab, 2: f'="#"&_xlfn.MINIFS({D_},{O_},{m})&"~#"&_xlfn.MAXIFS({D_},{O_},{m})', 3: f"=COUNTIF({O_},{m})", 4: tot,
              5: f'=IF(ISNUMBER(D{rr}),C{rr}-D{rr},"원자료 Total 없음")', 6: f"=C{rr}*{R('kg_b')}", 7: f'=IF(ISNUMBER(D{rr}),D{rr}*{R("kg_b")},"-")',
              8: f"=_xlfn.MINIFS({E_},{O_},{m})", 9: f"=_xlfn.MAXIFS({E_},{O_},{m})", 10: f"=COUNTIFS({O_},{m},{P_},1)",
@@ -390,11 +400,11 @@ for k, (m, lab, tot, note) in enumerate([(5, "5월 (일부)", None, "#37·#38만
     for dd, col in zip(range(1, 6), range(15, 20)):
         cells[col] = f"=COUNTIFS({O_},{m},{P_},1,{S_},{dd})"
     for col, v in cells.items():
-        kind = "in" if (col == 4 and tot is not None) else ("unk" if col == 4 else ("text" if col in (1, 22) else "calc"))
+        kind = "link" if col == 4 else ("text" if col in (1, 22) else "calc")
         style_cell(wsB.cell(row=rr, column=col, value=v), kind, {6: "kg0", 7: "kg0", 8: "md", 9: "md", 11: "b"}.get(col))
     wsB[f"L{rr}"] = ArrayFormula(f"L{rr}", f'=IF(J{rr}>0,MEDIAN(IF(({O_}={m})*({P_}=1),{S_})),"-")'); style_cell(wsB[f"L{rr}"], "calc", "b")
-rt = S0 + 7; SUMROW["tot"] = rt; r6, r10 = SUMROW[6], SUMROW[10]
-tc = {1: "6~10월 합계", 2: '="#"&' + f'_xlfn.MINIFS({D_},{O_},">=6")&"~#"&_xlfn.MAXIFS({D_},{O_},"<=10")', 3: f"=SUM(C{r6}:C{r10})",
+rt = S0 + 1 + len(MONTHS_); SUMROW["tot"] = rt; r6, r10 = SUMROW[6], SUMROW[12]
+tc = {1: "6~12월 합계", 2: '="#"&' + f'_xlfn.MINIFS({D_},{O_},">=6")&"~#"&_xlfn.MAXIFS({D_},{O_},"<=12")', 3: f"=SUM(C{r6}:C{r10})",
       4: f"=SUM(D{r6}:D{r10})", 5: f"=C{rt}-D{rt}", 6: f"=SUM(F{r6}:F{r10})", 7: f"=SUM(G{r6}:G{r10})", 8: f"=H{r6}", 9: f"=I{r10}",
       10: f"=SUM(J{r6}:J{r10})", 11: f"=AVERAGEIFS({S_},{P_},1)", 13: f"=_xlfn.MINIFS({S_},{P_},1)", 14: f"=_xlfn.MAXIFS({S_},{P_},1)",
       21: f"=SUM(U{r6}:U{r10})", 22: "5→6월 경계(7일)는 분석 범위 밖"}
@@ -411,7 +421,7 @@ wsB.conditional_formatting.add(f"S{B0}:S{BL}", FormulaRule(formula=[f"AND(ISNUMB
 rc = rt + 2
 CHK = {}
 for k, (lab, fx) in enumerate([("대조 '차이 확인' 건수", f'=COUNTIF($N${B0}:$N${BL},"차이 확인")'), ("번호 불연속", f'=COUNTIF($Q${B0}:$Q${BL},"확인")'),
-                               ("중복 번호", f'=COUNTIF($R${B0}:$R${BL},"중복")'), ("Total≠번호 월 수", f"=SUMPRODUCT(--(E{r6}:E{r10}<>0))"),
+                               ("중복 번호", f'=COUNTIF($R${B0}:$R${BL},"중복")'), ("Total≠번호 월 수", f"=SUMPRODUCT(--ISNUMBER(E{r6}:E{r10}),--(E{r6}:E{r10}<>0))"),
                                ("정제기 점유 하한 미만 롤링 구간", f'=COUNTIF($Z${B0}:$Z${BL},"확인*")')]):
     style_cell(wsB.cell(row=rc + k, column=1, value=lab), "text"); wsB.merge_cells(start_row=rc + k, start_column=1, end_row=rc + k, end_column=4)
     style_cell(wsB.cell(row=rc + k, column=5, value=fx), "key", "int"); CHK[k] = f"'02_Batch_Raw'!$E${rc+k}"
@@ -523,7 +533,7 @@ cline("ob_b31", "월 Batch (31일)", f"=31*24/{C['ob_int']}", "Batch/월", "11 B
 cline("ob_kgm", "월 생산량 (30일, 소수 Batch)", f"={C['ob_b30']}*{R('kg_b')}", "kg/월", "", nf="kg0")
 cline("ob_by", "연간 Batch (달력 연속 정수)", f"=INT({R('yh')}/{C['ob_int']})", "Batch/년", "", nf="int")
 cline("ob_kgy", "연간 생산량 (달력 연속)", f"={C['ob_by']}*{R('kg_b')}", "kg/년", "현재 1대 · 정지·보수 추가 미반영", "key", "kg0")
-cline("ob_alt37", "참고: #37 포함 평균", f"=({Bq}$E${BL}-{Bq}$E${B0})*24/({Bq}$D${BL}-{Bq}$D${B0})", "h/Batch", "5/26→6/2 7일 포함", nf="h2")
+cline("ob_alt37", "참고: #37 포함 평균", f"=({C['ob_d1']}-INDEX({E_r},MATCH(37,{D_r},0)))*24/({R('an_e')}-37)", "h/Batch", "5/26→6/2 7일 포함", nf="h2")
 cline("ob_dense", "점유 하한 미만 롤링 구간 수", f"={CHK[4]}", "구간", "45 h 기준 — 57 h 가정 시 확인 필요였던 구간도 재평가", "link", "int")
 
 cblock("6. 현재 Capa. 26.2톤 환산 (기준값 유지)")
@@ -652,8 +662,8 @@ for k in range(36):
     rr = M0 + k; y = 2026 + k // 12; m = k % 12 + 1; first = k == 0; p = rr - 1
     f = {}
     f["A"] = dt.date(y, m, 1); f["B"] = f"=YEAR(A{rr})"; f["C"] = f"=DAY(EOMONTH(A{rr},0))"
-    f["D"] = (f'=IF(A{rr}<{R("con_s")},"현재 (1대)",IF(A{rr}<={R("con_e")},"공사",IF(A{rr}<{R("rf_s")},"시운전",'
-              f'IF(AND(ISNUMBER({R("t105")}),A{rr}>={R("t105")}),"개선 (2대·105℃)","개선 (2대)"))))')
+    f["D"] = (f'=IF(A{rr}<{R("con_s")},"현재 (1대)",IF(A{rr}<={R("con_e")},"공사",IF(A{rr}<{R("trial_s")},"현재 (1대)",IF(A{rr}<{R("rf_s")},"시운전",'
+              f'IF(AND(ISNUMBER({R("t105")}),A{rr}>={R("t105")}),"개선 (2대·105℃)","개선 (2대)")))))')
     f["E"] = f'=IF(LEFT(D{rr},2)="개선",{R("n_new")},{R("n_now")})'
     f["F"] = None
     f["G"] = f'=IF(D{rr}="공사",IF(ISNUMBER({R("h_con")}),{R("h_con")},"미확인"),IF(D{rr}="시운전","시운전",E{rr}*C{rr}*24-N(F{rr})))'
@@ -1006,9 +1016,8 @@ for t, who, eff in (("표시일자 의미 · 실제 시각 · 계획 대비 실�
     row += 1
 wsS.freeze_panes = "A4"
 
-from ppt_sheets import add_ppt_sheets
 C["lt0"] = lt0
-add_ppt_sheets(wb, R, C, {"M0": M0, "SR": SR, "B0": B0, "BL": BL, "SUMROW": SUMROW, "CMP0": CMP0, "CMPY": CMPY})
+add_ppt_sheets(wb, R, C, {"M0": M0, "SR": SR, "B0": B0, "BL": BL, "SUMROW": SUMROW, "CMP0": CMP0, "CMPY": CMPY}, L)
 for ws in wb.worksheets:
     ws.sheet_view.zoomScale = 90
     tc = {"01_Inputs": "2E75B6", "02_Batch_Raw": "7F7F7F", "03_Capacity_Model": "EB002C",
