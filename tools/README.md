@@ -1,18 +1,25 @@
-# CpZr 생산능력 자료 생성 절차 (v2)
+# CpZr 생산능력 자료 생성 절차 (v3)
 
-1. `build_xlsx.py <원본 PPT> <수정본 PPT> <out.xlsx>` — 계산 Excel 생성 (모든 결과는 수식).
-2. 사본을 LibreOffice로 재계산 (`recalc.py calc.xlsx`)해 수식 오류 0 확인 → `inject_cache.py raw.xlsx calc.xlsx out.xlsx`로 원본 수식에 계산값만 넣어 배포본 생성.
-   (LibreOffice가 다시 저장한 파일은 '01_Inputs'! 등 숫자 시작 시트명의 따옴표가 빠져 Excel에서 복구 오류가 나므로 배포 금지.)
-3. PPT 구조 정리: 수정본 PPT에서 2027장(slide59)을 복제해 2028장 생성, 2026장(slide58)은 3장에 통합하므로 `sldIdLst`에서 제거 후 정리.
-4. `edit_pptx.py <구조 정리본> <수정본 PPT> <out.xlsx> <out.pptx>` — 기존 SK trichem 양식 도형·표를 재사용해 텍스트·막대·표를 수정하고 수치는 Excel에서 읽음.
+1. `python build_xlsx.py raw.xlsx` — 계산 Excel 생성 (모든 결과는 수식, `01_입력`의 이름 정의를 참조).
+2. 사본을 LibreOffice로 재계산 (`recalc.py calc.xlsx`)해 수식 오류 0 확인.
+3. `python inject_cache.py raw.xlsx calc.xlsx SKTC_CpZr_Capacity_RawData_Calculation_2026_2028.xlsx` — 원본 수식에 계산값만 넣어 배포본 생성.
+   (LibreOffice가 다시 저장한 파일은 '01_입력'! 등 숫자 시작 시트명의 따옴표가 빠져 Excel 복구 오류가 나므로 배포 금지.)
+4. `python build_pptx.py template/base.pptx calc.xlsx raw.xlsx.map.json SKTC_CpZr_Capacity_Reflux_Roadmap_2027_2028.pptx`
+   — SK trichem 양식의 공정도·머리글을 재사용하고 표·차트·Gantt는 Excel 값으로 작성 (11장).
 
-## PPT 붙여넣기용 가로형 시트 (P1~P5) = 원자료 입력 칸
-`ppt_sheets.py`가 생성. 각 시트는 PPT 장과 1:1 (P1 공정시간, P2 일정·30일 Gantt, P3 과거 Batch 달력·2026, P4 2027 월별, P5 2028 월별).
-파란 글자 칸이 입력의 단일 원천 — 01_Inputs·02_Batch_Raw·04~06은 이 칸을 참조하므로 어느 표에서 고쳐도 전체가 같이 바뀜.
-P3 달력: 날짜 칸에 Batch 번호 입력 → 02_Batch_Raw 표시일자·간격·관측 간격 자동 계산 (#37~#130).
-PPT 연동: 범위 복사 → PPT [선택하여 붙여넣기 → 연결하여 붙여넣기]로 붙이면 Excel 변경이 PPT에 반영됨.
+## Excel 시트
+| 시트 | 내용 |
+|---|---|
+| 01_입력 | 모든 기준값 · 월별 기존 생산계획 · 고객별 출하계획 (이 시트만 수정) |
+| 02_공정시간 | 57 h 구성 · 경로별 단순 합계 · 시간 구분 |
+| 03_한달운전 | 정제기 1대 · 2대 30일 운전 예시 · 월 생산량 비교 |
+| 04_Capa기준 | 연간 → 월 기준 (대정비 반영 ÷11) · 일정 · 2026 출하 |
+| 05_월별_Capa기준 / 06_월별_생산계획 | 두 버전의 2027·2028 월별 생산 vs 출하 |
+| 07_버전비교 | 연간 비교 · 24개월 누적 · 차트 |
+| 08_후공정부하 | 5 Gal · 200 L 충진 · OQC · 검사 작업량 |
+| 09_확인사항 | 생산팀 확인 내용 · 조건별 생산량 입력란 |
+| 10_과거Batch_참고 | 2026 생산계획 표시일자 원자료 (참고) |
 
-## 생산 계획 · Capa. 기준 (대정비 반영)
-- 2027 생산 계획: 1~4월 확정 2,178 / 2,178 / 3,168 / 1,188 kg (P4 생산 계획 행 입력, 4월 = 대정비). 4월 칸이 `maint_kg`의 원천.
-- 개선 후 월 Capa. = (연간 Capa. − 대정비 월 생산량) ÷ 11 → '27.5~ 47.2톤 기준 4,182.9 kg/월, 2028 105℃ 50.2톤 기준 4,455.6 kg/월. 매년 4월(P2 `대정비 월`) 대정비.
-- 04 시트 정제 생산량(R) = 2027~2028 생산 계획 · 누적(AQ)은 2027.1부터 재시작 → 최저값 = 필요 선행재고 (05 시트 5절).
+## PPT 구성
+1 As-is 공정 흐름·공정시간 · 2 As-is 한 달 운전 · 3 To-be 공정·일정 · 4 To-be 한 달 운전 · 5 버전 비교 ·
+6~9 2027/2028 × (Capa. 기준 / 기존 생산계획) · 10 후공정 부하 · 11 생산팀 확인 사항
