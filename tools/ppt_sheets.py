@@ -56,14 +56,20 @@ for k, col, v, nf in (("t_5g", "C", 2, H1), ("n_5g_b", "D", 9, "0"), ("kg_5g", "
     _pin(k, S1, f"{col}13", v, nf)
 _pin("max11", S1, "C17", 11, "0")
 _pin("capa_now", S1, "I17", 26.2, '0.0" 톤/년"')
-# P2: 일정·Gantt 입력 줄 (18칸씩 10개)
-P2_KEYS = [("con_s", "공사 시작", dt.date(2027, 2, 1)), ("con_e", "공사 종료", dt.date(2027, 5, 31)),
-           ("trial_s", "시운전 시작", dt.date(2027, 6, 1)), ("rf_s", "정제기 2대 생산 시작", dt.date(2027, 7, 1)),
-           ("f12_e", "최초 12개월 종료", dt.date(2028, 6, 30)), ("ars_ez", "ARS 시작 (이지켐)", dt.date(2027, 7, 1)),
-           ("ars_hs", "ARS 시작 (한솔)", dt.date(2027, 7, 1)), ("t105", "105℃ 적용 시작", None),
-           ("offset", "정제기 2 기동 시차 h", 30), ("int_rf", "설비별 투입 간격 h", None)]
+# P2: 일정·Gantt 입력 줄 (20칸씩 9개) — 대정비 월 생산량은 P4 4월 생산 계획 칸이 원천
+P2_KEYS = [("maint_m", "대정비 월 (매년)", 4), ("maint_kg", "대정비 월 생산 kg (P4 4월)", None),
+           ("rf_s", "정제기 2대 생산 시작", dt.date(2027, 5, 1)), ("f12_e", "최초 12개월 종료", dt.date(2028, 4, 30)),
+           ("ars_ez", "ARS 시작 (이지켐)", dt.date(2027, 7, 1)), ("ars_hs", "ARS 시작 (한솔)", dt.date(2027, 7, 1)),
+           ("t105", "105℃ 50.2톤 적용 시작", dt.date(2028, 1, 1)), ("offset", "정제기 2 기동 시차 h", 30), ("int_rf", "설비별 투입 간격 h", None)]
+P2_W = 20
 for i, (k, lab, v) in enumerate(P2_KEYS):
-    _pin(k, S2, f"{CL(3 + 18 * i)}6", v, "yyyy-mm-dd" if isinstance(v, dt.date) or k == "t105" else "0.0")
+    if k == "maint_kg":
+        continue
+    _pin(k, S2, f"{CL(3 + P2_W * i)}6", v, "yyyy-mm-dd" if isinstance(v, dt.date) else ('0"월"' if k == "maint_m" else "0.0"))
+# P4: 2027 생산 계획 (1~4월 확정 · 4월 = 대정비 월 생산량 → Capa. 기준 차감값)
+PLAN_ROW = 6
+PLAN27_FIX = [2178, 2178, 3168, 1188]
+_pin("maint_kg", S4, f"F{PLAN_ROW}", 1188, "#,##0")
 # P3: 과거 Batch 달력 (5~12월 × 1~31일) · 월 Total · 2026 출하
 P3_MONTHS = list(range(5, 13))
 P3_GRID = f"{q(S3)}$C$6:$AG${5 + len(P3_MONTHS)}"
@@ -72,7 +78,7 @@ P3_TOTAL = {m: f"{q(S3)}$AI${6 + i}" for i, m in enumerate(P3_MONTHS)}
 P3_TOTAL_DEF = {6: 8, 7: 11, 8: 8, 9: 8, 10: 11}
 P3_C0 = 38                                  # 2026 표 시작 열 (AL)
 P3_SHIP_ROW = {"hx": 13, "ez": 14, "cx": 15, "hs": 16}
-P45_SHIP_ROW = {2027: {"hx": 9, "cx": 10, "ez": 11, "hs": 12}, 2028: {"hx": 10, "cx": 11, "ez": 12, "hs": 13}}
+P45_SHIP_ROW = {yr: {"hx": 9, "cx": 10, "ez": 11, "hs": 12} for yr in (2027, 2028)}
 SHIP_DEF = {
     2026: {"hx": [1600, 1420, 1440, 1580, 1200, 1200, 1360, 1420, 1380, 1480, 1480, 1420], "ez": [0] * 8 + [560] * 4,
            "cx": [None] * 12, "hs": [None] * 12},
@@ -85,6 +91,11 @@ def ship_cell(yr, cust, m):
     if yr == 2026:
         return f"{q(S3)}${CL(P3_C0 + m)}${P3_SHIP_ROW[cust]}"
     return f"{q(S4 if yr == 2027 else S5)}${CL(2 + m)}${P45_SHIP_ROW[yr][cust]}"
+
+
+def plan_cell(yr, m):
+    """연·월 → P4/P5 생산 계획 칸 절대 참조 (2027~2028)."""
+    return f"{q(S4 if yr == 2027 else S5)}${CL(2 + m)}${PLAN_ROW}"
 
 
 def pin_ref(key):
@@ -225,33 +236,44 @@ def add_ppt_sheets(wb, R, C, MAPX, batches):
     put(ws, 5, 2, "항목", bold=True, color="FFFFFF", bg="404040", align="l")
     put(ws, 6, 2, "값", bold=True, align="l")
     for i, (k, lab, v) in enumerate(P2_KEYS):
-        c = 3 + 18 * i
+        c = 3 + P2_W * i
         put(ws, 5, c, lab, bold=True, color="FFFFFF", bg="404040", size=6)
-        inp(ws, 6, c, v, PIN[k][3], size=6.5)
+        if k == "maint_kg":
+            put(ws, 6, c, f"={pin_ref('maint_kg')}", "#,##0", bold=True, size=6.5)
+        else:
+            inp(ws, 6, c, v, PIN[k][3], size=6.5)
         for rr in (5, 6):
-            ws.merge_cells(start_row=rr, start_column=c, end_row=rr, end_column=c + 17)
-    note(ws, 7, 2, "※ 105℃ 적용 시작은 미정(공란) · 설비별 투입 간격 공란 = 47.2톤 역산 참고값(약 70.5 h) 사용 · 시차는 운영 개념 설명용 가정")
-    section(ws, 9, 2, "① 투자 · 운영 일정 (2027.1~2028.6)")
+            ws.merge_cells(start_row=rr, start_column=c, end_row=rr, end_column=c + P2_W - 1)
+    note(ws, 7, 2, "※ 대정비 월 생산량 = P4 4월 생산 계획 칸 (1,188 kg) · 개선 후 월 Capa. = (연간 Capa. − 대정비 월 생산량) ÷ 11 · "
+                   "2028 105℃ 50.2톤 · 설비별 투입 간격 공란 = 월 Capa. 역산 참고값 사용 · 시차는 운영 개념 설명용 가정")
+    section(ws, 9, 2, "① 투자 · 운영 일정 (2027.1~2028.6)", "생산 계획 행 = P4·P5 생산 계획 연동 (kg/월)", sub_col=3 + 60)
     put(ws, 10, 2, "구분", bold=True, color="FFFFFF", bg="404040", align="l")
     for j in range(18):
         y, m = (2027, j + 1) if j < 12 else (2028, j - 11)
         c = 3 + j * 10
         put(ws, 10, c, f"=DATE({y},{m},1)", 'yy"."m', bold=True, color="FFFFFF", bg="404040" if y == 2027 else "7F7F7F", size=6)
         ws.merge_cells(start_row=10, start_column=c, end_row=10, end_column=c + 9)
-    sched = [("■ 공사", f'IF(AND({{d}}>={R("con_s")},{{d}}<={R("con_e")}),"공사","")', "FBE5D6"),
-             ("■ 시운전", f'IF(AND({{d}}>={R("trial_s")},{{d}}<{R("rf_s")}),"시운전","")', "FFF2CC"),
-             ("■ 정제기 2대 적용 생산", f'IF({{d}}>={R("rf_s")},IF({{d}}<={R("f12_e")},"12개월","생산"),"")', "FDE9E7"),
+    mm = f'MONTH({{d}})={R("maint_m")}'
+    sched = [("■ 현재 정제기 1대 (확정 계획)", f'IF(AND({{d}}<{R("rf_s")},NOT({mm})),"1대 확정","")', "F2F2F2"),
+             ("■ 대정비 (매년)", f'IF({mm},"대정비","")', "D9D9D9"),
+             ("■ 정제기 2대 개선 생산", f'IF(AND({{d}}>={R("rf_s")},NOT({mm})),IF({{d}}<={R("f12_e")},"12개월","생산"),"")', "FDE9E7"),
              ("■ ARS 200 L 충진", f'IF({{d}}>=MIN({R("ars_hs")},{R("ars_ez")}),"ARS","수동")', "E4DFEC"),
-             ("■ 105℃ 검토안", f'IF(AND(ISNUMBER({R("t105")}),{{d}}>={R("t105")}),"105℃",IF(YEAR({{d}})=2028,"미정",""))', "E4DFEC")]
+             ("■ 105℃ 50.2톤 기준", f'IF(AND(ISNUMBER({R("t105")}),{{d}}>={R("t105")},NOT({mm})),"105℃","")', "E4DFEC"),
+             ("생산 계획 (kg/월)", None, None)]
     r = 11
     for lab, fx, bg in sched:
         put(ws, r, 2, lab, bold=True, align="l")
         for j in range(18):
             c = 3 + j * 10
-            put(ws, r, c, "=" + fx.replace("{d}", f"${CL(c)}$10"), size=6)
+            y, m = (2027, j + 1) if j < 12 else (2028, j - 11)
+            if fx is None:
+                put(ws, r, c, f"={plan_cell(y, m)}", "#,##0", bold=True, color=CXC, size=6)
+            else:
+                put(ws, r, c, "=" + fx.replace("{d}", f"${CL(c)}$10"), size=6)
             ws.merge_cells(start_row=r, start_column=c, end_row=r, end_column=c + 9)
-        ws.conditional_formatting.add(f"C{r}:{last}{r}", FormulaRule(formula=[f'AND(C{r}<>"",C{r}<>"수동",C{r}<>"미정")'],
-                                                                   fill=fill(bg), font=Font(name=PF, bold=True, color="C00000")))
+        if fx is not None:
+            ws.conditional_formatting.add(f"C{r}:{last}{r}", FormulaRule(formula=[f'AND(C{r}<>"",C{r}<>"수동",C{r}<>"미정")'],
+                                                                       fill=fill(bg), font=Font(name=PF, bold=True, color="C00000")))
         r += 1
     r += 1
     section(ws, r, 2, "② 정제기 2대 시간차 운전 개념 — 30일 (720 h)", "1칸 = 4 h · 준비 2 + 정제 + PQC·이송 + FQC 시간은 P1 입력 사용", sub_col=3 + 60)
@@ -378,24 +400,32 @@ def add_ppt_sheets(wb, R, C, MAPX, batches):
     ws.merge_cells(start_row=22, start_column=c0 + 1, end_row=22, end_column=c0 + 13)
 
     # ============================================================ P4 / P5
+    S5q = "'05_Reflux_Scenarios'!"
+    cy, RES = MAPX["CMPY"], MAPX["RES"]
     for yr, sheet, slide in ((2027, S4, 4), (2028, S5, 5)):
         ws = wb.create_sheet(sheet)
-        setup(ws, f"P{slide} | {yr} 월별 출하 · 참고 Capa. · 충진 (PPT {slide}장 표) — kg", LEGEND + " 고객 4행이 출하 입력 칸.", "FF7900")
+        setup(ws, f"P{slide} | {yr} 월별 생산 계획 · 출하 · 충진 (PPT {slide}장 표) — kg",
+              LEGEND + (" 생산 계획 1~4월 + 고객 4행이 입력 칸 (4월 = 대정비 월 생산량 → Capa. 기준 차감값)." if yr == 2027 else " 고객 4행이 출하 입력 칸 · 생산 계획은 P2·P4 입력으로 자동 계산."), "FF7900")
         ws.column_dimensions["B"].width = inch_w(2.1)
         for j in range(12):
             ws.column_dimensions[CL(3 + j)].width = inch_w(0.53)
         ws.column_dimensions["O"].width = inch_w(0.85)
         header_row(ws, 4, 2, ["구분"] + [f"{m}월" for m in range(1, 13)] + ["연간"])
         srr = SR[yr]
-        a, b = rows_04(yr, 1), rows_04(yr, 12)
-        body = [("적용 조건", "D", None, None), ("참고 Capa. 월 환산 (연간 환산÷12)", "T", KG1, None), ("실제 생산 가능량 (조건 확인)", "S", KG0, None)]
-        if yr == 2028:
-            body.append(("105℃ 검토안 50.2 (÷12)", "C105", KG1, None))
-        body += [("참고 Capa. − 출하", "AO", SGN, None), ("■ SK하이닉스", "hx", KG1, HX), ("■ CXMT", "cx", KG0, CXC),
-                 ("■ 이지켐", "ez", KG0, EZ), ("■ 한솔", "hs", KG0, HS), ("출하 합계", "Y", KG1, None),
-                 ("필요 Batch (출하÷Batch량)", "Z", "0.0", None), ("5 Gal 충진 h (병 상당×h/병)", "AB", "0.0", None),
-                 ("이지켐 용기", "AD", "0", None), ("한솔 용기", "AE", "0", None), ("200 L 충진 방식 (이지켐/한솔)", "AFAG", None, None),
-                 ("200 L 충진 h (확인분+미확인)", "AJX", "0.0", None), ("기말재고", "AZ", KG0, None)]
+        body = [("운전 조건", "D", None, None),
+                ("생산 계획 (kg)" + (" — 1~4월 확정" if yr == 2027 else " — 50.2톤 기준"), "PLAN", KG1, None),
+                ("Batch 환산 (÷190)", "PB", "0.0", None) if yr == 2027 else ("참고: 47.2톤 기준 (105℃ 미적용)", "P47", KG1, None),
+                ("생산 계획 − 출하", "AP", SGN, None), ("■ SK하이닉스", "hx", KG1, HX), ("■ CXMT", "cx", KG0, CXC),
+                ("■ 이지켐", "ez", KG0, EZ), ("■ 한솔", "hs", KG0, HS), ("출하 합계", "Y", KG1, None),
+                ("필요 Batch (출하÷Batch량)", "Z", "0.0", None), ("5 Gal 충진 h (병 상당×h/병)", "AB", "0.0", None),
+                ("이지켐 용기", "AD", "0", None), ("한솔 용기", "AE", "0", None), ("200 L 충진 방식 (이지켐/한솔)", "AFAG", None, None),
+                ("200 L 충진 h (확인분+미확인)", "AJX", "0.0", None), ("누적 (생산 계획 − 출하) '27.1~", "AQ", SGN, None)]
+        mm = R("maint_m")
+
+        def capa_fx(y, m):
+            d0 = f"DATE({y},{m},1)"
+            return (f"=IF({m}={mm},{R('maint_kg')},IF(AND(ISNUMBER({R('t105')}),{d0}>={R('t105')}),{R('capa_m105')},"
+                    f"IF({d0}>={R('rf_s')},{R('capa_m')},{R('capa_now')}*1000/12)))")
         r = 5
         for lab, col, nf, colr in body:
             put(ws, r, 2, lab, bold=True, align="l", color=colr or DARK)
@@ -408,34 +438,46 @@ def add_ppt_sheets(wb, R, C, MAPX, batches):
                 continue
             for m in range(1, 13):
                 rr_ = rows_04(yr, m)
-                if col == "C105":
-                    fx = f"={R('capa_t')}*1000/12"
+                if col == "PLAN":
+                    assert r == PLAN_ROW
+                    if yr == 2027 and m <= len(PLAN27_FIX):
+                        inp(ws, r, 2 + m, PLAN27_FIX[m - 1], KG0)
+                        continue
+                    fx = capa_fx(yr, m)
+                elif col == "PB":
+                    fx = f"={CL(2 + m)}{PLAN_ROW}/{R('kg_b')}"
+                elif col == "P47":
+                    fx = f"=IF({m}={mm},{R('maint_kg')},{R('capa_m')})"
                 elif col == "AFAG":
                     fx = f"={Mq}AF{rr_}&\"/\"&{Mq}AG{rr_}"
                 elif col == "AJX":
                     fx = f'=IF(ISNUMBER({Mq}AJ{rr_}),{Mq}AJ{rr_},TEXT(N({Mq}AH{rr_})+N({Mq}AI{rr_}),"0")&"+미확인")'
                 else:
                     fx = f"={Mq}{col}{rr_}"
-                put(ws, r, 2 + m, fx, nf, bold=col in ("Y", "Z", "AB", "AO", "S"), size=6.5 if col in ("D", "AFAG", "AJX", "S", "AZ") else 7)
-            total = {"D": "-", "AFAG": "-", "AJX": "-", "AZ": "-", "S": f"={Mq}S{srr}", "C105": f"={R('capa_t')}*1000"}.get(col, f"=SUM(C{r}:N{r})")
+                put(ws, r, 2 + m, fx, nf, bold=col in ("Y", "Z", "AB", "AP", "PLAN", "AQ"), size=6.5 if col in ("D", "AFAG", "AJX") else 7,
+                    color=CXC if col == "PLAN" else DARK)
+            total = {"D": "-", "AFAG": "-", "AJX": "-", "AQ": f"=N{r}"}.get(col, f"=SUM(C{r}:N{r})")
             put(ws, r, 15, total, {KG1: KG0, "0.0": "#,##0.0"}.get(nf, nf), bold=True, bg="F2F2F2")
             if col == "D":
                 ws.conditional_formatting.add(f"C{r}:N{r}", FormulaRule(formula=[f'LEFT(C{r},2)="개선"'], fill=fill("FDE9E7")))
-                ws.conditional_formatting.add(f"C{r}:N{r}", FormulaRule(formula=[f'OR(C{r}="공사",C{r}="시운전")'], fill=fill("FBE5D6")))
-            if col in ("S", "AJX", "AZ"):
+                ws.conditional_formatting.add(f"C{r}:N{r}", FormulaRule(formula=[f'C{r}="대정비"'], fill=fill("D9D9D9"), font=Font(name=PF, bold=True, color="C00000")))
+            if col in ("PLAN", "D"):
+                ws.conditional_formatting.add(f"C{r}:N{r}", FormulaRule(formula=[f'C$5="대정비"'], fill=fill("EDEDED")))
+            if col == "AJX":
                 ws.conditional_formatting.add(f"C{r}:O{r}", FormulaRule(formula=[f'NOT(ISNUMBER(C{r}))'], fill=fill("FFF2CC"), font=Font(name=PF, color="C55A11", size=6.5)))
             r += 1
-        cy = MAPX["CMPY"]
-        S5q = "'05_Reflux_Scenarios'!"
+        R5 = lambda k: f"{S5q}$B${RES[k]}"
         if yr == 2027:
-            lines = [f"=\"상반기 출하 \"&TEXT({S5q}B{cy['27_h1']},\"0.00\")&\"톤 vs 26.2×6/12 = \"&TEXT({S5q}C{cy['27_h1']},\"0.0\")&\"톤 (참고) · 하반기 출하 \"&TEXT({S5q}B{cy['27_h2']},\"0.00\")&\"톤 vs 47.2×6/12 = \"&TEXT({S5q}C{cy['27_h2']},\"0.0\")&\"톤 → \"&TEXT({S5q}D{cy['27_h2']},\"+0.00;-0.00\")&\"톤\"",
-                     f"=\"연간 출하 \"&TEXT({S5q}B{cy['27_now']},\"0.00\")&\"톤 · 현재 대비 \"&TEXT({S5q}D{cy['27_now']},\"+0.00;-0.00\")&\"톤 · 개선 47.2 대비 \"&TEXT({S5q}D{cy['27_rf']},\"+0.00;-0.00\")&\"톤 (연간 환산 — 실제 여유·부족 아님)\""]
+            lines = [f"=\"생산 계획 \"&TEXT({R5('plan27')}/1000,\"0.00\")&\"톤 (1~4월 확정 \"&TEXT({R5('plan27_fix')}/1000,\"0.00\")&\" + 5~12월 \"&TEXT({R('capa_m')},\"#,##0.0\")&\" kg × \"&TEXT({R5('n_rf27')},\"0\")&\") vs 출하 \"&TEXT({S5q}B{cy['27_plan']},\"0.00\")&\"톤 → \"&TEXT({S5q}D{cy['27_plan']},\"+0.00;-0.00\")&\"톤 · 누적 최저 \"&TEXT(-{R5('inv_need')}/1000,\"+0.00;-0.00\")&\"톤 (\"&TEXT({R5('inv_low')},\"yy.m\")&\") = 필요 선행재고\"",
+                     f"=\"월 Capa. = (\"&TEXT({R('capa_rf')}*1000,\"#,##0\")&\" − 대정비 \"&TEXT({R('maint_kg')},\"#,##0\")&\") ÷ 11 = \"&TEXT({R('capa_m')},\"#,##0.0\")&\" kg · 상반기 출하 \"&TEXT({S5q}B{cy['27_h1']},\"0.00\")&\" vs 계획 \"&TEXT({S5q}C{cy['27_h1']},\"0.00\")&\" · 하반기 \"&TEXT({S5q}B{cy['27_h2']},\"0.00\")&\" vs \"&TEXT({S5q}C{cy['27_h2']},\"0.00\")&\" → \"&TEXT({S5q}D{cy['27_h2']},\"+0.00;-0.00\")&\"톤\""]
         else:
-            lines = [f"=\"출하 가정 \"&TEXT({S5q}B{cy['28_base']},\"0.00\")&\"톤 · 47.2 기준 \"&TEXT({S5q}D{cy['28_base']},\"+0.00;-0.00\")&\"톤 · 105℃ 50.2 적용 시 \"&TEXT({S5q}D{cy['28_105']},\"+0.00;-0.00\")&\"톤 (검토안·미확정 · 연간 환산 비교)\""]
+            lines = [f"=\"출하 가정 \"&TEXT({S5q}B{cy['28_plan']},\"0.00\")&\"톤 vs 생산 계획 \"&TEXT({S5q}C{cy['28_plan']},\"0.00\")&\"톤 (105℃ 50.2 · 4월 대정비 + 11개월 \"&TEXT({R('capa_m105')},\"#,##0.0\")&\" kg) → \"&TEXT({S5q}D{cy['28_plan']},\"+0.00;-0.00\")&\"톤 · 47.2 기준이면 \"&TEXT({S5q}D{cy['28_47']},\"+0.00;-0.00\")&\"톤\""]
         for fx in lines:
             put(ws, r, 2, "비교 (t)", bold=True, align="l")
             put(ws, r, 3, fx, bold=True, color=HX, align="l"); ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=15)
             r += 1
-        note(ws, r, 2, "* 파란 글자 = 출하 입력 · 노란 칸 = 미확인 조건 (01_Inputs·P2 입력 시 자동 계산) · 하이닉스 = 22,720÷12 (표시 반올림) · 참고 Capa.는 실제 생산량 아님")
+        note(ws, r, 2, ("* 파란 글자 = 입력 · 생산 계획 5~12월 = Capa. 기준 자동 계산 (대정비 월 = P4 4월 칸)" if yr == 2027 else
+                        "* 파란 글자 = 입력 · 생산 계획 = (50.2톤 − 대정비 P4 4월 칸) ÷ 11 자동 계산 · 105℃ 적용 시작 = P2 입력")
+             + " · 노란 칸 = 미확인 조건 · 하이닉스 = 22,720÷12 (표시 반올림)")
         ws.freeze_panes = "C5"
         ws.print_area = f"B4:O{r}"

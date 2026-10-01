@@ -16,7 +16,7 @@ from openpyxl.utils import get_column_letter as CL
 from openpyxl.worksheet.formula import ArrayFormula
 from pptx import Presentation
 
-from ppt_sheets import PIN, P3_GRID, P3_GRID_FIRST, P3_TOTAL, add_ppt_sheets, pin_ref, ship_cell
+from ppt_sheets import PIN, P3_GRID, P3_GRID_FIRST, P3_TOTAL, add_ppt_sheets, pin_ref, plan_cell, ship_cell
 
 SRC1, SRC2, OUT = sys.argv[1:4]
 SRC_NAME = "SKTC_CpZr_Capacity_Reflux_Roadmap_2027_2028.pptx (첨부 원본·수정본)"
@@ -93,7 +93,7 @@ def widths(ws, spec):
 # ======================================================== 01_Inputs
 wsI = wb.active; wsI.title = "01_Inputs"
 title(wsI, "01_Inputs | CpZr 생산능력 계산 입력값 (v2)",
-      "정제 45 h / 충진 전까지 57 h · 현재 정제기 1대 → 개선 후 2대 시차 운전 · 4개 고객 · 2026~2028. 미확인은 노란 공란 — 확인 후 입력.")
+      "정제 45 h / 충진 전까지 57 h · '27.1~3 정제기 1대 확정 계획 → '27.4 대정비 → '27.5~ 2대 시차 운전 · 매년 4월 대정비 · 2028 105℃ 50.2톤 · 4개 고객.")
 legend(wsI, 3)
 header(wsI, 5, ["항목", "값", "단위", "적용 범위", "구분", "출처", "비고"])
 REF = {}
@@ -137,8 +137,8 @@ def R(key):
 
 
 sec("A. 설비 · 가동시간")
-inp("n_now", "정제기 수 (As-is)", 1, "대", "~'27.6 · 4개 고객 공동", "제공", USER, "단일 설비 순차 생산", "int")
-inp("n_new", "정제기 수 (To-be)", 2, "대", "'27.7~ · 시간차 병행 운전", "제공", USER, "고객별 전용 설비 아님 — 전체 자원 안에서 배정", "int")
+inp("n_now", "정제기 수 (As-is)", 1, "대", "~'27.3 · 4개 고객 공동", "제공", USER, "단일 설비 순차 생산", "int")
+inp("n_new", "정제기 수 (To-be)", 2, "대", "'27.5~ · 시간차 병행 운전", "제공", USER, "고객별 전용 설비 아님 — 전체 자원 안에서 배정", "int")
 inp("temp_now", "현재 정제온도", 103, "℃", "", "제공", USER, "", "int")
 inp("mdays", "월 비교 기준 일수", 30, "일/월", "정제기 비교", "제공", USER, "", "int")
 inp("mh", "월 비교 기준 시간 (정제기 1대)", f"=B{r-1}*24", "h/월", "정제기 전용 — 검사·충진 인력에 자동 적용 안 함", "수식", "수식", "", "h")
@@ -200,27 +200,28 @@ inp("kg_b_rf", "개선 후 Batch당 생산량", None, "kg/Batch", "'27.7~", "미
 
 sec("F. Capa. (연간 환산 기준)")
 inp("capa_now", "현재 연간 Capa.", 26.2, "t/년", "기준값 유지", "제공", USER, "시간·가동률·수율 조정해 맞추지 않음", "t")
-inp("capa_add", "개선 증가분", 21, "t/년", "'27.7~'28.6 최초 12개월", "제공", USER, "정제기 2대 활용", "t")
+inp("capa_add", "개선 증가분", 21, "t/년", "'27.5~'28.4 최초 12개월 (대정비 1개월 포함)", "제공", USER, "정제기 2대 활용", "t")
 inp("capa_rf", "개선 후 연간 환산 Capa.", f"={R('capa_now')}+{R('capa_add')}", "t/년", "≠ 2027 실제 생산량", "수식", "수식", "ARS 효과 미가산", "t")
 inp("capa_x2", "참고: 현재 Capa. 단순 2배", f"={R('capa_now')}*2", "t/년", "적용 안 함 — Mix·리사이클 보조 작업 등", "수식", "수식", "52.4 − 47.2 차이를 확정 손실로 표시 안 함", "t")
-inp("capa_tadd", "105℃ 예상 증가분", 3, "t/년", "2028 검토안", "검토안", USER, "미확정·검증·승인 필요", "t")
-inp("capa_t", "105℃ 적용 시 산술 Capa.", f"={R('capa_rf')}+{R('capa_tadd')}", "t/년", "검토안", "수식", "수식", "", "t")
+inp("capa_tadd", "105℃ 증가분", 3, "t/년", "2028 적용 (50.2톤 기준)", "계획", "사용자 지시 ('28년 50.2톤 기준)", "품질 검증·고객 승인 필요", "t")
+inp("capa_t", "105℃ 적용 Capa. (2028 기준)", f"={R('capa_rf')}+{R('capa_tadd')}", "t/년", "2028 생산 계획 기준", "수식", "수식", "", "t")
+inp("maint_m", "대정비 월 (매년)", 4, "월", "2027·2028 4월", "확정", USER, "대정비 월 생산 = 아래 생산량 (Capa. 기준 차감)", "int")
+inp("maint_kg", "대정비 월 생산량", 1188, "kg/월", "2027.4 확정 · 2028.4 동일 가정", "확정", USER, "", "kg")
+inp("capa_m", "개선 후 월 Capa. (대정비 반영)", f"=({R('capa_rf')}*1000-{R('maint_kg')})/11", "kg/월", "'27.5~ 대정비 월 제외 11개월", "수식", "수식",
+    "(47,200 − 1,188) ÷ 11 = 4,182.9 kg — 12개월 합계 47.2톤 유지", "kg")
+inp("capa_m105", "105℃ 적용 월 Capa. (대정비 반영)", f"=({R('capa_t')}*1000-{R('maint_kg')})/11", "kg/월", "2028 (105℃ 적용 시작부터)", "수식", "수식",
+    "(50,200 − 1,188) ÷ 11 = 4,455.6 kg — 12개월 합계 50.2톤", "kg")
 inp("target", "목표 Capa.", 50, "t/년", "2028년 이후 50톤 수준", "계획", USER, "", "t")
 inp("max11", "과거 월 최대 생산 Batch", 11, "Batch/월", "히스토리 최대", "제공", USER, "", "int")
 inp("temp_new", "검토 정제온도", 105, "℃", "2028 검토안", "검토안", USER, "열 안정성·Dimer·Unknown impurity·Yield", "int")
-inp("t105", "105℃ 적용 시작 월", None, "날짜", "04 시트 월별 반영", "미확인", "-", "미정 — 확정 시 입력")
+inp("t105", "105℃ 50.2톤 적용 시작", dt.date(2028, 1, 1), "날짜", "04 시트 월별 반영", "계획", USER, "2028년 50.2톤 기준")
 inp("int_105", "105℃ 적용 시 설비별 Batch 간격", None, "h/Batch", "", "미확인", "-")
 
 sec("G. 일정 · 정제기 2대 시차 운전")
-inp("con_s", "공사 시작", dt.date(2027, 2, 1), "날짜", "2027년 2~5월", "계획", USER)
-inp("con_e", "공사 종료", dt.date(2027, 5, 31), "날짜", "", "계획", USER)
-inp("trial_s", "시운전", dt.date(2027, 6, 1), "날짜", "2027년 6월", "계획", USER)
-inp("rf_s", "개선 적용 생산 시작", dt.date(2027, 7, 1), "날짜", "", "계획", USER)
-inp("f12_e", "최초 12개월 종료", dt.date(2028, 6, 30), "날짜", "2027.7~2028.6", "계획", USER)
-inp("h_con", "공사 중 정제기 가용시간", None, "h/월", "2027.2~5", "미확인", "-", "0 또는 정상값 임의 입력 안 함")
-inp("b_trial", "시운전 양품·출하 승인 Batch", None, "Batch", "2027.6", "미확인", "-")
-inp("stab_m", "초기 안정화 기간", None, "개월", "'27.7~", "미확인", "-")
-inp("int_rf", "개선 후 설비별 Batch 투입 간격", None, "h/Batch", "정제기 1·2 각각", "미확인", "-", "45 h → 22.5 h 단축으로 계산하지 않음")
+inp("plan_fix", "2027 확정 생산 계획 (1~4월)", "2,178 / 2,178 / 3,168 / 1,188", "kg/월", "P4 생산 계획 행 입력", "확정", USER, "4월 = 대정비")
+inp("rf_s", "개선 적용 생산 시작", dt.date(2027, 5, 1), "날짜", "대정비 후 '27.5~", "계획", USER)
+inp("f12_e", "최초 12개월 종료", dt.date(2028, 4, 30), "날짜", "2027.5~2028.4", "계획", USER)
+inp("int_rf", "개선 후 설비별 Batch 투입 간격", None, "h/Batch", "정제기 1·2 각각", "미확인", "-", "45 h → 22.5 h 단축으로 계산하지 않음 · 공란 시 월 Capa. 역산 참고값")
 inp("offset", "정제기 2 기동 시차 (정제기 1 투입 시작 기준)", 30, "h", "Gantt 예시", "가정", "운영 개념 설명용 가정", "미확정 — 동시 기동·24 h 고정 아님")
 
 sec("H. 후공정 자원 (정제기 720 h와 별도)")
@@ -562,11 +563,16 @@ cline("x2", "참고: 현재 26.2톤 단순 2배", f"={R('capa_x2')}", "t/년", "
 cline("x2_gap", "단순 2배 − 개선 후 47.2톤", f"={C['x2']}-{R('capa_rf')}", "t/년", "Mix·리사이클 준비 등 보조 작업·공유 자원 가능성 — 확정 손실 아님", "key", "t")
 cline("x2_ratio", "47.2 ÷ 52.4", f"={R('capa_rf')}/{C['x2']}", "%", "", nf="pct")
 cline("rf_b", "47.2톤 Batch 상당 (190 kg)", f"={R('capa_rf')}*1000/{R('kg_b')}", "Batch/년", "", nf="b1")
-cline("rf_int_all", "2대 합산 평균 투입 간격 (역산)", f"={R('yh')}/{C['rf_b']}", "h/Batch", "공장 전체 — 설비별 정제시간 아님", nf="h2")
-cline("rf_int_each", "설비별 등가 투입 간격 (역산)", f"={R('n_new')}*{R('yh')}/{C['rf_b']}", "h/Batch", "현재 1대 26.2톤 등가 63.5 h와 비교", "key", "h2")
+cline("rf_m", "개선 후 월 Capa. (대정비 반영)", f"={R('capa_m')}", "kg/월", "(47,200 − 대정비 1,188) ÷ 11", "link", "kg")
+cline("rf_bm", "월 Batch 상당 (2대 합산)", f"={C['rf_m']}/{R('kg_b')}", "Batch/월", "4,182.9 ÷ 190", nf="b")
+cline("rf_int_all", "2대 합산 평균 투입 간격 (역산)", f"={R('yh')}/12/{C['rf_bm']}", "h/Batch", "평균 월 730 h ÷ 월 Batch — 설비별 정제시간 아님", nf="h2")
+cline("rf_int_each", "설비별 등가 투입 간격 (역산)", f"={R('n_new')}*{C['rf_int_all']}", "h/Batch", "현재 1대 26.2톤 등가 63.5 h와 비교", "key", "h2")
+cline("rf_m105", "105℃ 월 Capa. (대정비 반영, 2028)", f"={R('capa_m105')}", "kg/월", "(50,200 − 1,188) ÷ 11", "link", "kg")
+cline("rf_bm105", "105℃ 월 Batch 상당 (2대 합산)", f"={C['rf_m105']}/{R('kg_b')}", "Batch/월", "", nf="b")
+cline("rf_int_105", "105℃ 설비별 등가 투입 간격 (역산)", f"={R('n_new')}*{R('yh')}/12/{C['rf_bm105']}", "h/Batch", "", "key", "h2")
 cline("rf_int_diff", "설비별 등가 간격 − 현재 26.2톤 등가", f"={C['rf_int_each']}-{C['cp_int']}", "h/Batch", "보조 작업 시간 가능성 (구성 미확인)", nf="h2")
 cline("off", "정제기 2 기동 시차 (예시 가정)", f"={R('offset')}", "h", "운영 개념 설명용 가정 · 미확정", "link", "h")
-cline("g_int", "Gantt 설비별 간격", f'=IF(ISNUMBER({R("int_rf")}),{R("int_rf")},ROUND({C["rf_int_each"]},1))', "h/Batch", "입력 없으면 47.2톤 역산 참고값", "est", "h")
+cline("g_int", "Gantt 설비별 간격", f'=IF(ISNUMBER({R("int_rf")}),{R("int_rf")},ROUND({C["rf_int_each"]},1))', "h/Batch", "입력 없으면 월 Capa. 4,182.9 kg 역산 참고값", "est", "h")
 header(wsC, row, ["Gantt (h, 정제기 1 IQC 시작 = 0)", "시작", "종료", "자원", "", "", "", "비고"]); row += 1
 G0 = row
 gl = []
@@ -641,18 +647,18 @@ wsC.freeze_panes = "B5"
 # ======================================================== 04_Monthly_2026_2028
 wsM = wb.create_sheet("04_Monthly_2026_2028")
 title(wsM, "04_Monthly_2026_2028 | 36개월 생산 가능량 · 4개 고객 출하 · 충진 · 재고",
-      "생산 가능 Batch = INT((설비 가용시간 합계 + 이월) ÷ 설비별 간격). 미확인 조건은 '미확인/보류' — 0으로 치환하지 않음.")
+      "2026 = 관측 간격 추정 생산 가능량 · 2027~2028 = 생산 계획 ('27.1~4 확정, 이후 Capa. 기준 = (연간 Capa. − 대정비) ÷ 11). 미확인 조건은 0으로 치환하지 않음.")
 legend(wsM, 3)
 cols = [("A", "연월"), ("B", "연도"), ("C", "월 일수"), ("D", "운전 조건"), ("E", "정제기 수"), ("F", "정지·보수\n입력 (h)"),
         ("G", "정제기 가용\n합계 (h)"), ("H", "설비별 Batch\n간격 (h)"), ("I", "이월 (h)"), ("J", "생산 가능\n완료 Batch"),
         ("K", "월말 진행\n이월 (h)"), ("L", "과거계획\n번호 개수"), ("M", "과거계획\nTotal"), ("N", "확정 생산 Batch\n(실적 입력)"),
-        ("O", "적용 Batch"), ("P", "적용 기준"), ("Q", "Batch당\n생산량 (kg)"), ("R", "정제 생산량\n(kg)"), ("S", "출하 가능 양품\n(kg)"),
-        ("T", "참고 Capa.\n월 환산 (kg)"), ("U", "하이닉스\n(kg)"), ("V", "CXMT\n(kg)"), ("W", "이지켐\n(kg)"), ("X", "한솔\n(kg)"),
+        ("O", "적용 Batch"), ("P", "적용 기준"), ("Q", "Batch당\n생산량 (kg)"), ("R", "정제 생산량\n(kg · '27~ 계획)"), ("S", "출하 가능 양품\n(kg)"),
+        ("T", "Capa. 기준\n월 (kg)"), ("U", "하이닉스\n(kg)"), ("V", "CXMT\n(kg)"), ("W", "이지켐\n(kg)"), ("X", "한솔\n(kg)"),
         ("Y", "출하 합계\n(kg)"), ("Z", "필요 Batch\n(÷190)"), ("AA", "5 Gal 병 상당\n(병)"), ("AB", "5 Gal 충진\n작업 (h)"),
         ("AC", "5 Gal OQC\n(h)"), ("AD", "이지켐\n용기"), ("AE", "한솔\n용기"), ("AF", "이지켐\n방식"), ("AG", "한솔\n방식"),
         ("AH", "이지켐 충진\n(h)"), ("AI", "한솔 충진\n(h)"), ("AJ", "200 L 충진\n확인분 (h)"), ("AK", "200 L 공통 8 h\n적용 가정 (h)"),
-        ("AL", "200 L OQC\n(h)"), ("AM", "글로브 박스\n가용 (h)"), ("AN", "글로브 박스\n여유 (h)"), ("AO", "참고 Capa.\n− 출하 (kg)"),
-        ("AP", "양품 생산\n− 출하 (kg)"), ("AQ", "누적 증감\n(기초재고 제외)"), ("AR", "기초재고"), ("AS", "공급 가능량"),
+        ("AL", "200 L OQC\n(h)"), ("AM", "글로브 박스\n가용 (h)"), ("AN", "글로브 박스\n여유 (h)"), ("AO", "Capa. 기준\n− 출하 (kg)"),
+        ("AP", "양품 생산\n− 출하 (kg)"), ("AQ", "누적 증감 (기초재고\n제외 · '27.1 재시작)"), ("AR", "기초재고"), ("AS", "공급 가능량"),
         ("AT", "① 하이닉스\n배정"), ("AU", "② 하이닉스\n목표재고"), ("AV", "③ CXMT\n배정"), ("AW", "③ 이지켐\n배정"), ("AX", "③ 한솔\n배정"),
         ("AY", "출하 부족"), ("AZ", "기말재고"), ("BA", "목표\n기말재고"), ("BB", "필요\n생산량"), ("BC", "여유·부족\n(기말−목표)"),
         ("BD", "계산 상태"), ("BE", "미확인 항목")]
@@ -662,26 +668,29 @@ for k in range(36):
     rr = M0 + k; y = 2026 + k // 12; m = k % 12 + 1; first = k == 0; p = rr - 1
     f = {}
     f["A"] = dt.date(y, m, 1); f["B"] = f"=YEAR(A{rr})"; f["C"] = f"=DAY(EOMONTH(A{rr},0))"
-    f["D"] = (f'=IF(A{rr}<{R("con_s")},"현재 (1대)",IF(A{rr}<={R("con_e")},"공사",IF(A{rr}<{R("trial_s")},"현재 (1대)",IF(A{rr}<{R("rf_s")},"시운전",'
-              f'IF(AND(ISNUMBER({R("t105")}),A{rr}>={R("t105")}),"개선 (2대·105℃)","개선 (2대)")))))')
+    plan = plan_cell(y, m) if y >= 2027 else None
+    f["D"] = (f'=IF(AND(YEAR(A{rr})>=2027,MONTH(A{rr})={R("maint_m")}),"대정비",IF(A{rr}<{R("rf_s")},"현재 (1대)",'
+              f'IF(AND(ISNUMBER({R("t105")}),A{rr}>={R("t105")}),"개선 (2대·105℃)","개선 (2대)")))')
     f["E"] = f'=IF(LEFT(D{rr},2)="개선",{R("n_new")},{R("n_now")})'
     f["F"] = None
-    f["G"] = f'=IF(D{rr}="공사",IF(ISNUMBER({R("h_con")}),{R("h_con")},"미확인"),IF(D{rr}="시운전","시운전",E{rr}*C{rr}*24-N(F{rr})))'
-    f["H"] = (f'=IF(OR(D{rr}="현재 (1대)",D{rr}="공사"),{C["basis_int"]},IF(D{rr}="개선 (2대)",IF(ISNUMBER({R("int_rf")}),{R("int_rf")},"미확인"),'
+    f["G"] = f'=IF(D{rr}="대정비","대정비",E{rr}*C{rr}*24-N(F{rr}))'
+    f["H"] = (f'=IF(D{rr}="현재 (1대)",{C["basis_int"]},IF(D{rr}="개선 (2대)",IF(ISNUMBER({R("int_rf")}),{R("int_rf")},"미확인"),'
               f'IF(D{rr}="개선 (2대·105℃)",IF(ISNUMBER({R("int_105")}),{R("int_105")},"미확인"),"-")))')
     f["I"] = "=0" if first else f"=IF(AND(ISNUMBER(K{p}),D{p}=D{rr}),K{p},0)"
-    f["J"] = (f'=IF(D{rr}="시운전",IF(ISNUMBER({R("b_trial")}),{R("b_trial")},"미확인"),'
-              f'IF(AND(ISNUMBER(G{rr}),ISNUMBER(H{rr})),INT((G{rr}+I{rr})/H{rr}),"미확인"))')
+    f["J"] = f'=IF(AND(ISNUMBER(G{rr}),ISNUMBER(H{rr})),INT((G{rr}+I{rr})/H{rr}),IF(D{rr}="대정비","대정비","미확인"))'
     f["K"] = f'=IF(AND(ISNUMBER(G{rr}),ISNUMBER(H{rr}),ISNUMBER(J{rr})),G{rr}+I{rr}-J{rr}*H{rr},"")'
     f["L"] = (f'=IF(COUNTIFS({E_r},">="&A{rr},{E_r},"<="&EOMONTH(A{rr},0))=0,"",COUNTIFS({E_r},">="&A{rr},{E_r},"<="&EOMONTH(A{rr},0)))')
     f["M"] = (f"=IF(ISNUMBER('02_Batch_Raw'!$D${SUMROW[m]}),'02_Batch_Raw'!$D${SUMROW[m]},\"\")" if (y == 2026 and m in SUMROW) else '=""')
     f["N"] = None
-    f["O"] = f"=IF(ISNUMBER(N{rr}),N{rr},J{rr})"
-    f["P"] = f'=IF(ISNUMBER(N{rr}),"실적 입력",IF(ISNUMBER(J{rr}),"추정 생산 가능량","미확인"))'
+    plab = "확정 계획" if (y == 2027 and m <= 4) else "Capa. 기준 계획"
+    f["O"] = f"=IF(ISNUMBER(N{rr}),N{rr},IF(ISNUMBER({plan}),{plan}/Q{rr},J{rr}))" if plan else f"=IF(ISNUMBER(N{rr}),N{rr},J{rr})"
+    f["P"] = (f'=IF(ISNUMBER(N{rr}),"실적 입력",IF(ISNUMBER({plan}),"{plab}","미확인"))' if plan
+              else f'=IF(ISNUMBER(N{rr}),"실적 입력",IF(ISNUMBER(J{rr}),"추정 생산 가능량","미확인"))')
     f["Q"] = f'=IF(LEFT(D{rr},2)="개선",IF(ISNUMBER({R("kg_b_rf")}),{R("kg_b_rf")},{R("kg_b")}),{R("kg_b")})'
-    f["R"] = f'=IF(ISNUMBER(O{rr}),O{rr}*Q{rr},"미확인")'
+    f["R"] = (f'=IF(ISNUMBER(N{rr}),N{rr}*Q{rr},IF(ISNUMBER({plan}),{plan},IF(ISNUMBER(O{rr}),O{rr}*Q{rr},"미확인")))' if plan
+              else f'=IF(ISNUMBER(O{rr}),O{rr}*Q{rr},"미확인")')
     f["S"] = f'=IF(ISNUMBER(R{rr}),R{rr}*IF(ISNUMBER({R("y_all")}),{R("y_all")},1),"미확인")'
-    f["T"] = f'=IF(A{rr}<{R("rf_s")},{R("capa_now")},IF(D{rr}="개선 (2대·105℃)",{R("capa_t")},{R("capa_rf")}))*1000/12'
+    f["T"] = (f'=IF(D{rr}="대정비",{R("maint_kg")},IF(D{rr}="개선 (2대·105℃)",{R("capa_m105")},IF(D{rr}="개선 (2대)",{R("capa_m")},{R("capa_now")}*1000/12)))')
     for col, cu in (("U", "hx"), ("V", "cx"), ("W", "ez"), ("X", "hs")):
         sr = ship_ref(y, cu, m)
         f[col] = f'=IF(ISNUMBER({sr}),{sr},"미제시")'
@@ -704,7 +713,7 @@ for k in range(36):
     f["AN"] = f'=IF(ISNUMBER(AM{rr}),AM{rr}-AB{rr},"미확인")'
     f["AO"] = f"=T{rr}-Y{rr}"
     f["AP"] = f'=IF(ISNUMBER(S{rr}),S{rr}-Y{rr},"미확인")'
-    f["AQ"] = f'=IF(ISNUMBER(AP{rr}),AP{rr},"보류")' if first else f'=IF(AND(ISNUMBER(AP{rr}),ISNUMBER(AQ{p})),AQ{p}+AP{rr},"보류")'
+    f["AQ"] = f'=IF(ISNUMBER(AP{rr}),AP{rr},"보류")' if (first or (y == 2027 and m == 1)) else f'=IF(AND(ISNUMBER(AP{rr}),ISNUMBER(AQ{p})),AQ{p}+AP{rr},"보류")'
     f["AR"] = f'=IF(ISNUMBER({R("inv0")}),{R("inv0")},"미입력")' if first else f'=IF(ISNUMBER(AZ{p}),AZ{p},"보류")'
     f["AS"] = f'=IF(AND(ISNUMBER(AR{rr}),ISNUMBER(S{rr})),AR{rr}+S{rr},"보류")'
     f["AT"] = f'=IF(ISNUMBER(AS{rr}),MIN(AS{rr},U{rr}),"보류")'
@@ -718,12 +727,11 @@ for k in range(36):
     f["BB"] = f'=IF(AND(ISNUMBER(AR{rr}),ISNUMBER(BA{rr})),Y{rr}+BA{rr}-AR{rr},"보류")'
     f["BC"] = f'=IF(AND(ISNUMBER(AZ{rr}),ISNUMBER(BA{rr})),AZ{rr}-BA{rr},"보류")'
     f["BD"] = f'=IF(ISNUMBER(AZ{rr}),"계산 가능",IF(ISNUMBER(AP{rr}),"부분 (재고 입력 필요)","보류 (생산 조건 미확인)"))'
-    f["BE"] = "=" + "&".join([
-        f'IF(D{rr}="공사",IF(ISNUMBER({R("h_con")}),"","공사 중 가용시간·"),"")',
-        f'IF(D{rr}="시운전",IF(ISNUMBER({R("b_trial")}),"","시운전 양품·"),"")',
-        f'IF(D{rr}="개선 (2대)",IF(ISNUMBER({R("int_rf")}),"","설비별 간격·"),"")',
-        f'IF(D{rr}="개선 (2대·105℃)",IF(ISNUMBER({R("int_105")}),"","105℃ 간격·"),"")',
-        f'IF(ISNUMBER(N{rr}),"","실적·")', f'IF(ISNUMBER({R("y_all")}),"","양품률(100% 상한)·")',
+    be = ([f'IF(D{rr}="개선 (2대)",IF(ISNUMBER({R("int_rf")}),"","설비별 간격·"),"")',
+           f'IF(D{rr}="개선 (2대·105℃)",IF(ISNUMBER({R("int_105")}),"","105℃ 간격·"),"")', f'IF(ISNUMBER(N{rr}),"","실적·")'] if y == 2026
+          else [f'IF(D{rr}="대정비","대정비 범위·","")', f'IF(D{rr}="개선 (2대·105℃)","105℃ 품질 검증·","")'])
+    f["BE"] = "=" + "&".join(be + [
+        f'IF(ISNUMBER({R("y_all")}),"","양품률(100% 상한)·")',
         f'IF(COUNTIF(U{rr}:X{rr},"미제시")>0,"고객 물량 미제시·","")',
         f'IF(ISNUMBER(AJ{rr}),"","200 L 충진시간·")', f'IF(ISNUMBER({R("gb_h")}),"","글로브 박스 가용·")',
         f'IF(ISNUMBER({R("inv0")}),"","기초재고·")'])
@@ -768,48 +776,50 @@ for col in ("AN", "AO", "AP", "AQ", "BC"):
 wsM.conditional_formatting.add(f"AY{M0}:AY{MN}", FormulaRule(formula=[f"AND(ISNUMBER(AY{M0}),AY{M0}>0.001)"], fill=red, font=redf))
 wsM.conditional_formatting.add(f"G{M0}:BD{MN}", FormulaRule(formula=[f'OR(G{M0}="미확인",G{M0}="보류",G{M0}="미입력",G{M0}="미제시",LEFT(G{M0},2)="부분")'],
                                                            fill=PatternFill("solid", fgColor="EDEDED"), font=Font(color="C55A11", italic=True)))
-for k, t in enumerate(["※ 생산 가능 Batch는 정제기 능력 추정 — 실제 계획·실적 아님. 실적은 N열 입력 시 우선 적용. 2027.12 기말재고 → 2028.1 기초재고로 자동 연결.",
+for k, t in enumerate(["※ 2026 생산 가능 Batch는 관측 간격 추정 · 2027~2028 정제 생산량 = P4·P5 생산 계획 ('27.1~4 확정 · 이후 Capa. 기준). 실적은 N열 입력 시 우선 적용. 2027.12 기말재고 → 2028.1 기초재고로 자동 연결.",
                        "※ 배정: ① 하이닉스 출하 → ② 하이닉스 목표재고 → ③ CXMT·이지켐·한솔은 잔여량을 출하 비율로 배분 (우선순위 미확인 — 01_Inputs J).",
                        "※ 기말재고 = 기초재고 + 출하 가능 양품 생산량 − 출하량(배정분) · 필요 생산량 = 출하량 + 목표 기말재고 − 기초재고.",
                        "※ 5 Gal 병 상당 = (하이닉스+CXMT) ÷ 20 — 실제 출하는 20 kg 정수 용기로 배분하고 연간 물량 유지. 200 L: 이지켐 140 kg / 한솔 150 kg.",
                        "※ 200 L 충진 확인분은 미확인 고객 시간 제외. '공통 8 h 적용 가정' 열은 비교용 가정 — 한솔 확정값 아님.",
-                       "※ 참고 Capa. 월 환산 = 연간 환산 Capa. ÷ 12 (2027.7~ 47.2톤) — 실제 달력연도 생산량 아님."]):
+                       "※ Capa. 기준 월 = (연간 Capa. − 대정비 월 생산량) ÷ 11 — '27.5~ 47.2톤 → 4,182.9 kg · 2028 105℃ 50.2톤 → 4,455.6 kg · 대정비 월 1,188 kg · '27.1~3 = 26.2÷12.",
+                       "※ 누적 증감(AQ)은 2027.1부터 다시 누적 → 최저값 = 2027.1.1 기준 필요 선행재고 (05 시트 5절)."]):
     wsM.cell(row=MX[2028] + 2 + k, column=1, value=t).font = font(GRAY, italic=True)
 
 # ======================================================== 05_Reflux_Scenarios
 wsR = wb.create_sheet("05_Reflux_Scenarios")
-title(wsR, "05_Reflux_Scenarios | 공사 · 시운전 · 개선(정제기 2대) · 최초 12개월 · 2028 기본/105℃ 검토안",
-      "연간 환산 비교값은 확정 부족량·판매 가능량이 아님. 시나리오 가정은 04 시트 입력란을 대신하지 않음.")
+title(wsR, "05_Reflux_Scenarios | 확정 계획 · 대정비 · 개선(정제기 2대) · 2028 105℃ 50.2톤 · 생산 계획 vs 출하 · 필요 선행재고",
+      "생산 계획 = '27.1~4 확정 + Capa. 기준 월 (연간 Capa. − 대정비) ÷ 11. 연간 환산 비교는 실제 판매 가능량이 아님.")
 legend(wsR, 3)
 widths(wsR, {"A": 40, **{CL(i): 11 for i in range(2, 27)}, "AA": 40})
 row = 5
 wsR.cell(row=row, column=1, value="1. 기간 정의").font = font("EB002C", True, 11); row += 1
 header(wsR, row, ["구분", "시작", "종료", "정제기", "운전", "200 L 충진", "생산 조건", "상태"]); row += 1
-for p_ in (("현재", dt.date(2026, 1, 1), f"={R('con_s')}-1", "1대", "단일 설비 순차", "이지켐·한솔 수동 (~'27.6)", "현재 조건 (03 선택 간격)", "제공"),
-           ("공사", f"={R('con_s')}", f"={R('con_e')}", "1대", "가동 여부 미확인", "-", f'=IF(ISNUMBER({R("h_con")}),"가용 "&{R("h_con")}&" h/월","공사 중 가용시간 미확인")', "계획"),
-           ("시운전", f"={R('trial_s')}", f"={R('rf_s')}-1", "1·2", "시운전", "-", f'=IF(ISNUMBER({R("b_trial")}),{R("b_trial")}&" Batch","양품·출하 승인 미확인")', "계획"),
-           ("개선 적용 생산", f"={R('rf_s')}", "", "2대", "시간차 병행", "이지켐·한솔 ARS ('27.7~)", f'=IF(ISNUMBER({R("int_rf")}),{R("int_rf")}&" h/Batch","설비별 간격 미확인")', "계획"),
-           ("최초 12개월", f"={R('rf_s')}", f"={R('f12_e')}", "2대", "", "", "47.2톤 연간 환산 기준", "제공"),
-           ("2028 기본", dt.date(2028, 1, 1), dt.date(2028, 12, 31), "2대", "", "ARS", "47.2톤 기준 · 이지켐 월 840 kg 가정", "가정"),
-           ("105℃ 검토안", f'=IF(ISNUMBER({R("t105")}),{R("t105")},"미정")', "", "2대", "103→105℃", "", "+3톤 · 50.2톤 산술", "검토안")):
+md0 = f"DATE(2027,{R('maint_m')},1)"
+for p_ in (("현재 (1대 · 확정 계획)", dt.date(2026, 1, 1), f"={md0}-1", "1대", "단일 설비 순차", "이지켐·한솔 수동 (~'27.6)", "'27.1~3 확정 2,178 / 2,178 / 3,168 kg", "확정"),
+           ("대정비 (매년 같은 월)", f"={md0}", f"=EOMONTH({md0},0)", "-", "대정비", "-", f'=TEXT({R("maint_kg")},"#,##0")&" kg/월 (확정) · Capa. 기준 차감"', "확정"),
+           ("개선 적용 생산 (2대)", f"={R('rf_s')}", "", "2대", "시간차 병행", "이지켐·한솔 ARS ('27.7~)", f'=TEXT({R("capa_m")},"#,##0.0")&" kg/월 = (47.2톤 − 대정비) ÷ 11"', "계획"),
+           ("최초 12개월", f"={R('rf_s')}", f"={R('f12_e')}", "2대", "", "", "47.2톤 = 대정비 1개월 + 11개월", "제공"),
+           ("2028 105℃ 50.2톤", f'=IF(ISNUMBER({R("t105")}),{R("t105")},"미정")', dt.date(2028, 12, 31), "2대", "103→105℃", "ARS",
+            f'=TEXT({R("capa_m105")},"#,##0.0")&" kg/월 · 4월 대정비 · 합계 50.2톤"', "계획 (품질 검증)")):
     for j, v in enumerate(p_):
         style_cell(wsR.cell(row=row, column=1 + j, value=v), "link" if j in (1, 2) else "text", "yyyy-mm-dd" if j in (1, 2) else None)
     row += 1
 row += 1
-wsR.cell(row=row, column=1, value="2. Capa. 로드맵 (연간 환산)").font = font("EB002C", True, 11); row += 1
-header(wsR, row, ["구분", "연간 환산 (t)", "증가분 (t)", "월 환산 (t)", "Batch 상당/년", "설비별 등가 간격 (h)", "상태", "비고"]); row += 1
-for lab, fx, add, nref, st, note in (("현재 (1대·103℃)", f"={R('capa_now')}", "", R('n_now'), "기준값", ""),
-                                     ("참고: 단순 2배", f"={R('capa_x2')}", "", R('n_new'), "적용 안 함", "차이 5.2톤 확정 손실 아님"),
-                                     ("개선 후 (2대)", f"={R('capa_rf')}", f"={R('capa_add')}", R('n_new'), "제공 (12개월 환산)", "ARS 미가산"),
-                                     ("105℃ 적용 시", f"={R('capa_t')}", f"={R('capa_tadd')}", R('n_new'), "검토안", "미확정·시점 미정"),
-                                     ("목표 (2028년 이후)", f"={R('target')}", "", R('n_new'), "목표", "50톤 수준")):
-    vals = [lab, fx, add, f"=B{row}/12", f"=B{row}*1000/{R('kg_b')}", f"={nref}*{R('yh')}/E{row}", st, note]
+wsR.cell(row=row, column=1, value="2. Capa. 로드맵 (연간 · 월 기준)").font = font("EB002C", True, 11); row += 1
+header(wsR, row, ["구분", "연간 (t)", "증가분 (t)", "월 기준 (kg)", "월 Batch 상당", "설비별 등가 간격 (h)", "상태", "비고"]); row += 1
+for lab, fx, add, nref, st, note, mt in (("현재 (1대·103℃)", f"={R('capa_now')}", "", R('n_now'), "기준값", "연간 ÷ 12", False),
+                                         ("참고: 단순 2배", f"={R('capa_x2')}", "", R('n_new'), "적용 안 함", "차이 5.2톤 확정 손실 아님", False),
+                                         ("개선 후 (2대 · 대정비 반영)", f"={R('capa_rf')}", f"={R('capa_add')}", R('n_new'), "제공 (12개월)", "(연간 − 대정비) ÷ 11", True),
+                                         ("105℃ 적용 (2028 기준)", f"={R('capa_t')}", f"={R('capa_tadd')}", R('n_new'), "계획 (품질 검증)", "(연간 − 대정비) ÷ 11", True),
+                                         ("목표 (2028년 이후)", f"={R('target')}", "", R('n_new'), "목표", "50톤 수준", True)):
+    mfx = f"=(B{row}*1000-{R('maint_kg')})/11" if mt else f"=B{row}*1000/12"
+    vals = [lab, fx, add, mfx, f"=D{row}/{R('kg_b')}", f"={nref}*{R('yh')}/12/E{row}", st, note]
     for j, v in enumerate(vals):
-        style_cell(wsR.cell(row=row, column=1 + j, value=v), "key" if j == 1 else ("text" if j in (0, 6, 7) else "calc"), [None, "t", "t", "t", "b1", "h2", None, None][j])
+        style_cell(wsR.cell(row=row, column=1 + j, value=v), "key" if j in (1, 3) else ("text" if j in (0, 6, 7) else "calc"), [None, "t", "t", "kg", "b", "h2", None, None][j])
     row += 1
 row += 1
-wsR.cell(row=row, column=1, value="3. 연도별 연간 환산 Capa. vs 출하 (산술 비교 — 실제 여유·부족 아님)").font = font("EB002C", True, 11); row += 1
-header(wsR, row, ["비교", "출하 (t)", "비교 Capa. (t)", "Capa. − 출하 (t)", "방향", "", "", "설명"]); row += 1
+wsR.cell(row=row, column=1, value="3. 연도별 출하 vs 생산 계획 · Capa. (t)").font = font("EB002C", True, 11); row += 1
+header(wsR, row, ["비교", "출하 (t)", "생산 계획 / Capa. (t)", "차이 (t)", "방향", "", "", "설명"]); row += 1
 CMPY = {}
 
 
@@ -819,85 +829,62 @@ def SH(yr):
 
 h1 = f"SUM('01_Inputs'!C{SHIP[(2027, 'tot')]}:H{SHIP[(2027, 'tot')]})/1000"
 h2 = f"SUM('01_Inputs'!I{SHIP[(2027, 'tot')]}:N{SHIP[(2027, 'tot')]})/1000"
+Rm = lambda a_, b_: f"SUM('04_Monthly_2026_2028'!R{a_}:R{b_})/1000"
+r27, r28 = M0 + 12, M0 + 24
 for key, lab, sh, cap, note in (("26_now", "2026 제시분 vs 현재 26.2", f"={SH(2026)}", f"={R('capa_now')}", "CXMT·한솔 미포함"),
                                 ("27_now", "2027 출하 vs 현재 26.2", f"={SH(2027)}", f"={R('capa_now')}", "17.2톤 초과"),
-                                ("27_rf", "2027 출하 vs 개선 47.2 (연간 환산)", f"={SH(2027)}", f"={R('capa_rf')}", "3.8톤 — 2027 실제 여유 아님"),
-                                ("27_h1", "2027 상반기 출하 vs 26.2 × 6/12 (참고)", f"={h1}", f"={R('capa_now')}*6/12", "공사·시운전 미반영 참고"),
-                                ("27_h2", "2027 하반기 출하 vs 47.2 × 6/12 (균등 가동 참고)", f"={h2}", f"={R('capa_rf')}*6/12", "0.96톤 부족 방향"),
-                                ("28_base", "2028 출하 가정 vs 47.2 (기본)", f"={SH(2028)}", f"={R('capa_rf')}", "기본 시나리오 — 방향은 E열"),
-                                ("28_105", "2028 출하 가정 vs 50.2 (105℃ 12개월 적용 시, 검토안)", f"={SH(2028)}", f"={R('capa_t')}", "검토안 — 미확정")):
+                                ("27_plan", "2027 출하 vs 2027 생산 계획 (1~4월 확정 + 5~12월 Capa. 기준)", f"={SH(2027)}", f"={Rm(r27, r27 + 11)}", "대정비·확정 계획 반영"),
+                                ("27_h1", "2027 상반기 출하 vs 1~6월 생산 계획", f"={h1}", f"={Rm(r27, r27 + 5)}", "1~4월 확정 + 5~6월 Capa. 기준"),
+                                ("27_h2", "2027 하반기 출하 vs 7~12월 생산 계획", f"={h2}", f"={Rm(r27 + 6, r27 + 11)}", "4,182.9 kg × 6"),
+                                ("27_rf", "참고: 2027 출하 vs 47.2 (연간 환산)", f"={SH(2027)}", f"={R('capa_rf')}", "연간 환산 — 2027 실제 아님"),
+                                ("28_plan", "2028 출하 가정 vs 2028 생산 계획 (105℃ 50.2톤)", f"={SH(2028)}", f"={Rm(r28, r28 + 11)}", "4월 대정비 + 11개월 4,455.6 kg"),
+                                ("28_47", "참고: 2028 출하 가정 vs 47.2 (105℃ 미적용 시)", f"={SH(2028)}", f"={R('capa_rf')}", "4월 대정비 + 11개월 4,182.9 kg")):
     vals = [lab, sh, cap, f"=C{row}-B{row}", f'=IF(D{row}<0,"부족 방향","여유 방향")', "", "", note]
     for j, v in enumerate(vals):
         style_cell(wsR.cell(row=row, column=1 + j, value=v), "key" if j == 3 else ("text" if j in (0, 4, 7) else "link"), "t" if j in (1, 2, 3) else None)
     CMPY[key] = row; row += 1
-wsR.conditional_formatting.add(f"D{CMPY['26_now']}:D{CMPY['28_105']}", CellIsRule(operator="lessThan", formula=["0"], fill=red, font=redf))
+wsR.conditional_formatting.add(f"D{CMPY['26_now']}:D{CMPY['28_47']}", CellIsRule(operator="lessThan", formula=["0"], fill=red, font=redf))
 row += 1
-wsR.cell(row=row, column=1, value="4. 2027~2028 실제 생산 가능량 (04 시트 입력 기준 — 미확인 월은 부분합계)").font = font("EB002C", True, 11); row += 1
+wsR.cell(row=row, column=1, value="4. 2027~2028 월별 생산 계획 · 출하 · 누적 (04 시트 연동)").font = font("EB002C", True, 11); row += 1
 header(wsR, row, ["구분"] + [f"{y % 100}.{m}" for y in (2027, 2028) for m in range(1, 13)] + ["비고"]); row += 1
-for lab, col, nf in (("운전 조건", "D", None), ("생산 가능 Batch", "O", "int"), ("양품 생산 가능량 (kg)", "S", "kg0"), ("출하 (kg)", "Y", "kg0")):
+MROW = {}
+for key, lab, col, nf in (("D", "운전 조건", "D", None), ("P", "계획 기준", "P", None), ("O", "Batch 환산", "O", "b1"), ("S", "생산 계획 (양품, kg)", "S", "kg0"),
+                          ("Y", "출하 (kg)", "Y", "kg0"), ("AP", "생산 − 출하 (kg)", "AP", "kg0"), ("AQ", "누적 ('27.1~, kg)", "AQ", "kg0")):
     style_cell(wsR.cell(row=row, column=1, value=lab), "text", bold=True)
     for k in range(24):
         style_cell(wsR.cell(row=row, column=2 + k, value=f"='04_Monthly_2026_2028'!{col}{M0+12+k}"), "link", nf)
-    row += 1
+    MROW[key] = row; row += 1
+wsR.conditional_formatting.add(f"B{MROW['AP']}:Y{MROW['AQ']}", CellIsRule(operator="lessThan", formula=["0"], fill=red, font=redf))
 row += 1
-wsR.cell(row=row, column=1, value="5. 2027~2028 공급 대응 시나리오 (참고 · 확정 아님) — 필요 선행재고 = 누적 (생산 − 출하) 최저점").font = font("EB002C", True, 11); row += 1
-header(wsR, row, ["시나리오 가정", "S1 공사 중 중단", "S2 공사 중 현재 유지", "S3 50% · 안정화 3개월", "", "", "", "설명"]); row += 1
-SP = {}
-for key, lab, vals, nf, desc in (("con", "공사 기간 가동률 (현재 조건 대비)", [0, 1, 0.5], "pct", "2~5월"),
-                                 ("trial", "시운전 월 양품 (kg)", [0, 0, 0], "kg0", "6월 — 출하 승인 미확인 → 0 가정"),
-                                 ("stab", "개선 후 안정화 개월 (현재 수준 생산)", [0, 0, 3], "int", "7월부터"),
-                                 ("rfkg", "개선 안정 후 월 생산 (kg)", [f"={R('capa_rf')}*1000/12"] * 3, "kg0", "47.2톤 ÷ 12 — 상한 참고"),
-                                 ("t105", "2028 105℃ 12개월 적용 (1=적용)", [0, 0, 0], "int", "검토안 — 기본 0"),
-                                 ("y", "양품률", [1, 1, 1], "pct", "100% = 상한")):
-    style_cell(wsR.cell(row=row, column=1, value=lab), "text", bold=True)
-    for j, v in enumerate(vals):
-        style_cell(wsR.cell(row=row, column=2 + j, value=v), "est", nf)
-    style_cell(wsR.cell(row=row, column=8, value=desc), "note"); SP[key] = row; row += 1
-row += 1
-header(wsR, row, ["월별 (kg)"] + [f"{y % 100}.{m}" for y in (2027, 2028) for m in range(1, 13)] + ["합계"]); row += 1
-BASE = row
-style_cell(wsR.cell(row=row, column=1, value="현재 조건 월 생산 가능량 (1대, Batch 상당×190)"), "text", bold=True)
-for k in range(24):
-    style_cell(wsR.cell(row=row, column=2 + k, value=f"='04_Monthly_2026_2028'!C{M0+12+k}*24/{C['basis_int']}*{R('kg_b')}"), "calc", "kg0")
-row += 1
-SHIPR = row
-style_cell(wsR.cell(row=row, column=1, value="출하 (4개 고객)"), "text", bold=True)
-for k in range(24):
-    style_cell(wsR.cell(row=row, column=2 + k, value=f"='04_Monthly_2026_2028'!Y{M0+12+k}"), "link", "kg0")
-style_cell(wsR.cell(row=row, column=26, value=f"=SUM(B{row}:Y{row})"), "key", "kg0"); row += 1
-SCN = {}
-for j, s in enumerate(["S1", "S2", "S3"]):
-    pc = CL(2 + j); pr = row
-    style_cell(wsR.cell(row=row, column=1, value=f"{s} 생산 (kg)"), "text", bold=True)
-    for k in range(24):
-        col = CL(2 + k); mm = k + 1
-        fx = (f"=IF({mm}=1,{col}{BASE},IF({mm}<=5,{col}{BASE}*${pc}${SP['con']},IF({mm}=6,${pc}${SP['trial']},"
-              f"IF({mm}-6<=${pc}${SP['stab']},{col}{BASE},IF(AND({mm}>12,${pc}${SP['t105']}=1),{R('capa_t')}*1000/12,${pc}${SP['rfkg']})))))*${pc}${SP['y']}")
-        style_cell(wsR.cell(row=row, column=2 + k, value=fx), "calc", "kg0")
-    style_cell(wsR.cell(row=row, column=26, value=f"=SUM(B{row}:Y{row})"), "key", "kg0"); row += 1
-    cr = row
-    style_cell(wsR.cell(row=row, column=1, value=f"{s} 누적 (생산 − 출하)"), "text")
-    for k in range(24):
-        col = CL(2 + k)
-        style_cell(wsR.cell(row=row, column=2 + k, value=f"={col}{pr}-{col}{SHIPR}" if k == 0 else f"={CL(1+k)}{cr}+{col}{pr}-{col}{SHIPR}"), "calc", "kg0")
-    row += 1
-    SCN[s] = (pr, cr)
-wsR.conditional_formatting.add(f"B{SCN['S1'][1]}:Y{SCN['S3'][1]}", CellIsRule(operator="lessThan", formula=["0"], fill=red, font=redf))
-row += 1
-header(wsR, row, ["시나리오 결과", "S1", "S2", "S3", "", "", "", "해석"]); row += 1
+wsR.cell(row=row, column=1, value="5. 생산 계획 기준 결과 — 필요 선행재고 = 누적 (생산 − 출하) 최저점").font = font("EB002C", True, 11); row += 1
+header(wsR, row, ["항목", "값", "단위", "", "", "", "", "설명"]); row += 1
 RES = {}
-for lab, fn, nf, desc in (("2027 생산 (kg)", lambda s: f"=SUM(B{SCN[s][0]}:M{SCN[s][0]})", "kg0", "참고 — 실제 아님"),
-                          ("2027 생산 − 출하 (kg)", lambda s: f"=SUM(B{SCN[s][0]}:M{SCN[s][0]})-SUM(B{SHIPR}:M{SHIPR})", "kg0", ""),
-                          ("2028 생산 − 출하 (kg)", lambda s: f"=SUM(N{SCN[s][0]}:Y{SCN[s][0]})-SUM(N{SHIPR}:Y{SHIPR})", "kg0", "47.2 균등 환산 기준"),
-                          ("필요 선행재고 2027-01-01 (kg)", lambda s: f"=MAX(0,-MIN(B{SCN[s][1]}:Y{SCN[s][1]}))", "kg0", "24개월 결품 없이 대응할 최소 기초재고"),
-                          ("누적 최저 시점", lambda s: f'=IF(MIN(B{SCN[s][1]}:Y{SCN[s][1]})<0,INDEX($B${BASE-1}:$Y${BASE-1},MATCH(MIN(B{SCN[s][1]}:Y{SCN[s][1]}),B{SCN[s][1]}:Y{SCN[s][1]},0)),"-")', None, "연.월")):
+AQ_ = f"B{MROW['AQ']}:Y{MROW['AQ']}"; AQ28 = f"N{MROW['AQ']}:Y{MROW['AQ']}"
+Mq_ = "'04_Monthly_2026_2028'!"
+for key, lab, fx, unit, nf, desc in (
+        ("plan27", "2027 생산 계획", f"=SUM(B{MROW['S']}:M{MROW['S']})", "kg", "kg0", "1~4월 확정 + 5~12월 Capa. 기준"),
+        ("plan27_fix", "2027 1~4월 확정 계획", f"=SUM(B{MROW['S']}:E{MROW['S']})", "kg", "kg0", "2,178 + 2,178 + 3,168 + 1,188 (대정비)"),
+        ("plan27_rf", "2027 5~12월 Capa. 기준 계획", f"=SUM(F{MROW['S']}:M{MROW['S']})", "kg", "kg0", "4,182.9 kg × 8"),
+        ("n_rf27", "2027 Capa. 기준 개월 수", f"=COUNTIF(F{MROW['P']}:M{MROW['P']},\"Capa.*\")", "개월", "int", ""),
+        ("d27", "2027 생산 계획 − 출하", f"=SUM(B{MROW['AP']}:M{MROW['AP']})", "kg", "kg0", "2027.12 누적과 같음"),
+        ("plan28", "2028 생산 계획", f"=SUM(N{MROW['S']}:Y{MROW['S']})", "kg", "kg0", "105℃ 50.2톤 · 4월 대정비"),
+        ("d28", "2028 생산 계획 − 출하", f"=SUM(N{MROW['AP']}:Y{MROW['AP']})", "kg", "kg0", ""),
+        ("inv_need", "필요 선행재고 (2027-01-01)", f"=MAX(0,-MIN({AQ_}))", "kg", "kg0", "24개월 결품 없이 대응할 최소 기초재고 (양품률 100% 상한)"),
+        ("inv_low", "누적 최저 시점", f"=INDEX({Mq_}A{M0+12}:A{M0+35},MATCH(MIN({AQ_}),{AQ_},0))", "연월", "yyyy-mm", "대정비 월 직후"),
+        ("low28", "2028 누적 최저", f"=MIN({AQ28})", "kg", "kg0", "2028 대정비 월"),
+        ("low28_t", "2028 누적 최저 시점", f"=INDEX({Mq_}A{M0+24}:A{M0+35},MATCH(MIN({AQ28}),{AQ28},0))", "연월", "yyyy-mm", ""),
+        ("end27", "2027.12 누적", f"=M{MROW['AQ']}", "kg", "kg0", ""),
+        ("end28", "2028.12 누적", f"=Y{MROW['AQ']}", "kg", "kg0", ""),
+        ("b_mar", "2027.3 계획 Batch 환산", f"=D{MROW['O']}", "Batch", "b1", "3,168 ÷ 190 — 1대 과거 최대 11 Batch 대비 확인 필요"),
+        ("b_rf", "5~12월 월 Batch (2대 합산)", f"={R('capa_m')}/{R('kg_b')}", "Batch/월", "b1", ""),
+        ("b_105", "2028 월 Batch (105℃)", f"={R('capa_m105')}/{R('kg_b')}", "Batch/월", "b1", "")):
     style_cell(wsR.cell(row=row, column=1, value=lab), "text", bold=True)
-    for j, s in enumerate(["S1", "S2", "S3"]):
-        style_cell(wsR.cell(row=row, column=2 + j, value=fn(s)), "key", nf)
-    style_cell(wsR.cell(row=row, column=8, value=desc), "note"); RES[lab] = row; row += 1
+    style_cell(wsR.cell(row=row, column=2, value=fx), "key", nf)
+    style_cell(wsR.cell(row=row, column=3, value=unit), "text")
+    style_cell(wsR.cell(row=row, column=8, value=desc), "note"); RES[key] = row; row += 1
 row += 1
-wsR.cell(row=row, column=1, value="6. 105℃ 검토안 확인사항 (미확정 · 적용 시점 미정 · 검증 및 승인 필요)").font = font("EB002C", True, 11); row += 1
-for t in ["열 안정성", "Dimer 형성", "Unknown impurity 증가", "Yield 영향", "고객 승인", "적용 시점 — 확정 시 01_Inputs '105℃ 적용 시작 월' 입력 → 04 시트 월별 반영"]:
+wsR.cell(row=row, column=1, value="6. 105℃ (2028 50.2톤 기준) 확인사항 — 품질 검증 및 승인 필요").font = font("EB002C", True, 11); row += 1
+for t in ["열 안정성", "Dimer 형성", "Unknown impurity 증가", "Yield 영향", "고객 승인", "적용 시작 — P2 '105℃ 50.2톤 적용 시작' (기본 2028-01-01) 변경 시 04·P5 월별 반영"]:
     style_cell(wsR.cell(row=row, column=1, value="· " + t), "text"); row += 1
 
 # ======================================================== 06_Report_Summary
@@ -938,8 +925,10 @@ kp = [("t57c", f"={R('t57c')}", "h", "01", "h"), ("t_ref", f"={R('t_ref')}", "h"
       ("sh26", f"={SH(2026)}", "t", "01", "t"), ("sh27", f"={SH(2027)}", "t", "01", "t"), ("sh28", f"={SH(2028)}", "t", "01", "t"),
       ("sh27h1", f"={h1}", "t", "01", "t"), ("sh27h2", f"={h2}", "t", "01", "t"),
       ("d26_now", f"={cy('26_now')}", "t", "05", "t"), ("d27_now", f"={cy('27_now')}", "t", "05", "t"), ("d27_rf", f"={cy('27_rf')}", "t", "05", "t"),
-      ("d27_h1", f"={cy('27_h1')}", "t", "05", "t"), ("d27_h2", f"={cy('27_h2')}", "t", "05", "t"), ("d28_base", f"={cy('28_base')}", "t", "05", "t"),
-      ("d28_105", f"={cy('28_105')}", "t", "05", "t"), ("cap27h2", f"='05_Reflux_Scenarios'!$C${CMPY['27_h2']}", "t", "05", "t"),
+      ("d27_h1", f"={cy('27_h1')}", "t", "05", "t"), ("d27_h2", f"={cy('27_h2')}", "t", "05", "t"),
+      ("d28_47", f"={cy('28_47')}", "t", "05", "t"), ("d27_plan", f"={cy('27_plan')}", "t", "05", "t"), ("d28_plan", f"={cy('28_plan')}", "t", "05", "t"),
+      ("capa_m", f"={R('capa_m')}", "kg", "01", "kg"), ("capa_m105", f"={R('capa_m105')}", "kg", "01", "kg"), ("maint_kg", f"={R('maint_kg')}", "kg", "01", "kg0"),
+      ("rf_bm", f"={C['rf_bm']}", "Batch", "03", "b"), ("rf_bm105", f"={C['rf_bm105']}", "Batch", "03", "b"), ("rf_int_105", f"={C['rf_int_105']}", "h", "03", "h2"), ("cap27h2", f"='05_Reflux_Scenarios'!$C${CMPY['27_h2']}", "t", "05", "t"),
       ("cap27h1", f"='05_Reflux_Scenarios'!$C${CMPY['27_h1']}", "t", "05", "t"),
       ("p26", f"={Mq}$S${SR[2026]}", "kg", "04", "kg0"), ("pb26", f"={Mq}$O${SR[2026]}", "Batch", "04", "int"),
       ("p27", f"={Mq}$S${SR[2027]}", "kg", "04", None), ("p28", f"={Mq}$S${SR[2028]}", "kg", "04", None),
@@ -951,11 +940,8 @@ kp = [("t57c", f"={R('t57c')}", "h", "01", "h"), ("t_ref", f"={R('t_ref')}", "h"
       ("ak27", f"={Mq}$AK${SR[2027]}", "h", "04", "h"), ("ak28", f"={Mq}$AK${SR[2028]}", "h", "04", "h"),
       ("ah27", f"={Mq}$AH${SR[2027]}", "h", "04", "h"), ("al27", f"={Mq}$AL${SR[2027]}", "h", "04", "h"), ("ac27", f"={Mq}$AC${SR[2027]}", "h", "04", "h"),
       ("al28", f"={Mq}$AL${SR[2028]}", "h", "04", "h"), ("ac28", f"={Mq}$AC${SR[2028]}", "h", "04", "h")]
-for s in ("S1", "S2", "S3"):
-    j = "BCD"[["S1", "S2", "S3"].index(s)]
-    for lab, key in (("2027 생산 (kg)", "p"), ("2027 생산 − 출하 (kg)", "d27"), ("2028 생산 − 출하 (kg)", "d28"),
-                     ("필요 선행재고 2027-01-01 (kg)", "inv"), ("누적 최저 시점", "low")):
-        kp.append((f"{s}_{key}", f"='05_Reflux_Scenarios'!${j}${RES[lab]}", "kg", "05", None if key == "low" else "kg0"))
+for key_, rr_ in RES.items():
+    kp.append((key_, f"='05_Reflux_Scenarios'!$B${rr_}", "", "05", "yyyy-mm" if key_ in ("inv_low", "low28_t") else "#,##0.0"))
 for k, fx, unit, src, nf in kp:
     style_cell(wsS.cell(row=row, column=1, value=k), "text"); style_cell(wsS.cell(row=row, column=2, value=fx), "link", nf)
     style_cell(wsS.cell(row=row, column=3, value=unit), "text"); style_cell(wsS.cell(row=row, column=4, value=src), "text")
@@ -975,7 +961,7 @@ ch.set_categories(Reference(wsS, min_col=1, min_row=CMPS, max_row=CMPS + 3)); ch
 wsS.add_chart(ch, f"H{CMPS-1}")
 row += 6
 wsS.cell(row=row, column=1, value="3. 36개월 출하 · 참고 Capa. · 생산 가능량 (kg)").font = font("EB002C", True, 11); row += 1
-header(wsS, row, ["연월", "운전 조건", "하이닉스", "CXMT", "이지켐", "한솔", "출하 합계", "참고 Capa. 월 환산", "참고 Capa.−출하",
+header(wsS, row, ["연월", "운전 조건", "하이닉스", "CXMT", "이지켐", "한솔", "출하 합계", "Capa. 기준 월", "Capa. 기준−출하",
                   "생산 가능 Batch", "양품 생산 가능량", "5 Gal 충진 h", "200 L 용기", "계산 상태"]); row += 1
 MS0 = row
 for k in range(36):
@@ -985,7 +971,7 @@ for k in range(36):
         style_cell(wsS.cell(row=row, column=1 + j, value=fx), "link", ["ym", None, "kg", "kg", "kg", "kg", "kg", "kg", "kg", "int", "kg0", "h", "b1", None][j])
     row += 1
 wsS.conditional_formatting.add(f"I{MS0}:I{MS0+35}", CellIsRule(operator="lessThan", formula=["0"], fill=red, font=redf))
-ch2 = BarChart(); ch2.title = "월별 출하 합계 vs 참고 Capa. 월 환산 (kg)"; ch2.style = 10
+ch2 = BarChart(); ch2.title = "월별 출하 합계 vs Capa. 기준 월 (kg)"; ch2.style = 10
 ch2.add_data(Reference(wsS, min_col=7, min_row=MS0 - 1, max_row=MS0 + 35), titles_from_data=True)
 ch2.add_data(Reference(wsS, min_col=8, min_row=MS0 - 1, max_row=MS0 + 35), titles_from_data=True)
 ch2.set_categories(Reference(wsS, min_col=1, min_row=MS0, max_row=MS0 + 35)); ch2.height = 8; ch2.width = 28
@@ -1001,8 +987,8 @@ wsS.cell(row=row, column=1, value="5. 주요 미확인 사항").font = font("EB0
 header(wsS, row, ["확인사항", "담당", "영향"]); row += 1
 for t, who, eff in (("표시일자 의미 · 실제 시각 · 계획 대비 실적 · Total 46 vs 번호 54 · 색상 의미", "생산", "관측 간격 67.5 h 전제"),
                     ("이송 중 정제기 점유 · 세척·전환 · 대기 · 보수 시간", "생산", "점유 47~53 h, 비점유 약 20 h 구성"),
-                    ("정제기 2 기동 시차 · 설비별 간격 · Mix·리사이클 준비 시간", "생산·설비", "47.2톤 달성 조건 (설비별 등가 70.5 h)"),
-                    ("공사 중 가동 · 시운전 양품·출하 승인 · 초기 안정화", "설비·품질", "2027 실제 생산량"),
+                    ("정제기 2 기동 시차 · 설비별 간격 · Mix·리사이클 준비 시간", "생산·설비", "월 4,182.9 kg 달성 조건 (설비별 등가 약 66 h)"),
+                    ("2027.3 계획 3,168 kg (16.7 Batch) 1대 달성 근거 · 대정비 범위·기간 · '27.5 개선 생산 초기 안정화", "생산·설비", "2027 생산 계획 · 필요 선행재고"),
                     ("190 kg vs 9병 180 kg 잔량 10 kg 처리 · 200 L 후 잔량 5 Gal 충진", "생산·품질", "충진량·재고"),
                     ("총 투입·재순환·양품 실측 → 수율 (구두 160~220 kg 범위)", "생산", "Batch량 검증"),
                     ("고객별 합격률 · 이지켐 색도", "품질", "출하 가능 양품"),
@@ -1010,14 +996,14 @@ for t, who, eff in (("표시일자 의미 · 실제 시각 · 계획 대비 실�
                     ("글로브 박스 교대 · Tank 수·용량 · QC 근무시간", "생산", "5 Gal 267 h/월 · Tank 회전"),
                     ("기초재고 · 목표재고 · 고객 간 우선순위", "생산관리·영업", "월별 재고·배정"),
                     ("2026 CXMT·한솔 물량 · 하이닉스 실적/계획 구분 · 2028 수요 확정", "영업", "출하 합계"),
-                    ("105℃: 열 안정성·Dimer·Unknown impurity·Yield · 승인 · 적용 시점", "품질·기술", "50.2톤 검토안")):
+                    ("105℃: 열 안정성·Dimer·Unknown impurity·Yield · 고객 승인", "품질·기술", "2028 50.2톤 기준")):
     for j, v in enumerate((t, who, eff)):
         style_cell(wsS.cell(row=row, column=1 + j, value=v), "text")
     row += 1
 wsS.freeze_panes = "A4"
 
 C["lt0"] = lt0
-add_ppt_sheets(wb, R, C, {"M0": M0, "SR": SR, "B0": B0, "BL": BL, "SUMROW": SUMROW, "CMP0": CMP0, "CMPY": CMPY}, L)
+add_ppt_sheets(wb, R, C, {"M0": M0, "SR": SR, "B0": B0, "BL": BL, "SUMROW": SUMROW, "CMP0": CMP0, "CMPY": CMPY, "RES": RES}, L)
 for ws in wb.worksheets:
     ws.sheet_view.zoomScale = 90
     tc = {"01_Inputs": "2E75B6", "02_Batch_Raw": "7F7F7F", "03_Capacity_Model": "EB002C",

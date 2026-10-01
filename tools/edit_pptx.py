@@ -353,7 +353,8 @@ notes(s1, f"""[1장 As-is — 공정시간과 현재 생산능력 (Excel 01_Inpu
 # ============================================================ SLIDE 2 — To-be
 d = shapes(s2)
 set_lines(d["TextBox 2"], ["To-be | 정제기 2대 운영과 투자 계획"])
-set_lines(d["TextBox 5"], ["정제기 1·2 시간차 운전 · 공용 후공정 · '27.7 생산 시작 · 47.2톤/년 (연간 환산)"])
+CM, CM105, MK = K("capa_m"), K("capa_m105"), K("maint_kg")
+set_lines(d["TextBox 5"], [f"정제기 1·2 시간차 운전 · '27.4 대정비 → '27.5 생산 · 월 {f1(CM)} kg · '28 50.2톤"])
 # 정제기 아이콘 2개 (기존 아이콘 축소·복제)
 vessel = [sh for sh in s2.shapes if sh.name.startswith("Round Same Side Corner")][0]
 noz, vtxt = d["Rectangle 177"], d["TextBox 179"]
@@ -380,23 +381,69 @@ d["TextBox 226"].text_frame.paragraphs[0].runs[3].font.color.rgb = RGBColor.from
 set_lines(d["TextBox 227"], ["OQC·출하 : 5 Gal 9병 2 h · 200 L 1용기 2 h (운송 별도)"]); pos(d["TextBox 227"], x=3.90, w=3.10)
 set_lines(d["TextBox 240"], ["개선 영향 구간"])
 set_lines(d["Rounded Rectangle 241"], ["정제기 2대"]); d["Rounded Rectangle 241"].text_frame.paragraphs[0].runs[0].font.size = Pt(6)
-set_lines(d["TextBox 242"], ["정제기 1·2 시간차 병행 · '27.7 생산", "+21톤/년 (12개월 환산) · 단순 2배 아님"])
+set_lines(d["TextBox 242"], ["정제기 1·2 시간차 병행 · '27.5 생산", "+21톤/년 (12개월 환산) · 단순 2배 아님"])
 set_lines(d["TextBox 244"], ["200 L · '26 설치 → 한솔 '27.7~", "이지켐 전환 월 확인 · Capa. 가산 없음"])
 set_lines(d["TextBox 246"], ["5 Gal 글로브 박스 · 2 h/병", "하이닉스 · CXMT · ARS 미적용"])
 set_lines(d["TextBox 247"], ["· 정제 45 h → 22.5 h 단축 아님 (설비 2대)", "· 공용 후공정(검사·Tank·충진) 병목 검토"])
 widen_flow(s2)
 d = shapes(s2)
 # ① 일정 표
-set_lines(d["TextBox 255"], [["① 투자 · 운영 일정", "   '27.6까지 정제기 1대 · 26.2톤/년 → '27.7부터 정제기 2대 · 47.2톤/년 (연간 환산)"]])
+set_lines(d["TextBox 255"], [["① 투자 · 운영 일정", f"   '27.1~3 정제기 1대 확정 계획 → '27.4 대정비 {f0(MK)} kg → '27.5~ 정제기 2대 월 {f1(CM)} kg (47.2톤) · '28 105℃ 월 {f1(CM105)} kg (50.2톤)"]])
 tbl = d["Table 256"].table
-cell_set(tbl.cell(2, 2), "공사 (2~5월) · 공사 중 가동 여부 확인")
-cell_set(tbl.cell(3, 6), "시운전")
-cell_set(tbl.cell(4, 0), "■ 정제기 2대 적용 생산")
-cell_set(tbl.cell(4, 7), "정제기 2대 생산 시작 '27.7 · 최초 12개월 '27.7~'28.6 (47.2톤 환산)")
+hl = {r_: (copy.deepcopy(tbl.cell(r_, c_)._tc.tcPr), copy.deepcopy(tbl.cell(r_, c_).text_frame.paragraphs[0].runs[0]._r.find(qn("a:rPr"))))
+      for r_, c_ in ((2, 2), (3, 6), (4, 7))}
+plain_tcpr = copy.deepcopy(tbl.cell(2, 1)._tc.tcPr)
+
+
+def seg(r_, c1, c2, txt, style, color=None, bg=None):
+    """일정표 한 행의 c1~c2 칸을 병합해 강조 서식(style 행의 기존 칸)으로 텍스트 입력."""
+    if c2 > c1:
+        tbl.cell(r_, c1).merge(tbl.cell(r_, c2))
+    for j in range(c1, c2 + 1):
+        tc = tbl.cell(r_, j)._tc; tcpr = copy.deepcopy(hl[style][0])
+        if bg:
+            for f_ in tcpr.findall(qn("a:solidFill")):
+                tcpr.remove(f_)
+            sf = etree.SubElement(tcpr, qn("a:solidFill")); etree.SubElement(sf, qn("a:srgbClr")).set("val", bg)
+        tc.replace(tc.tcPr, tcpr)
+    p_ = tbl.cell(r_, c1).text_frame.paragraphs[0]
+    for r0 in list(p_.runs):
+        r0._r.getparent().remove(r0._r)
+    r0 = p_.add_run(); r0._r.insert(0, copy.deepcopy(hl[style][1])); r0.text = txt
+    p_.alignment = PP_ALIGN.CENTER
+    if color:
+        r0.font.color.rgb = RGBColor.from_string(color)
+
+
+for r_ in (2, 3, 4):
+    for j in range(1, 19):
+        c = tbl.cell(r_, j)
+        if c.is_merge_origin:
+            c.split()
+    for j in range(1, 19):
+        tc = tbl.cell(r_, j)._tc; tc.replace(tc.tcPr, copy.deepcopy(plain_tcpr)); cell_set(tbl.cell(r_, j), "")
+cell_set(tbl.cell(2, 0), "■ 정제기 1대 (확정 계획)")
+seg(2, 1, 3, "2,178 · 2,178 · 3,168", 2)
+cell_set(tbl.cell(3, 0), f"■ 대정비 (매년 4월 · {f0(MK)} kg)")
+seg(3, 4, 4, "대정비", 3, "C00000", "D9D9D9"); seg(3, 16, 16, "대정비", 3, "C00000", "D9D9D9")
+cell_set(tbl.cell(4, 0), "■ 정제기 2대 개선 생산")
+seg(4, 5, 12, f"정제기 2대 '27.5~ · 월 {f1(CM)} kg = (47,200 − {f0(MK)}) ÷ 11", 4)
+seg(4, 13, 15, f"105℃ 월 {f1(CM105)} kg", 4); seg(4, 17, 18, f"105℃ {f1(CM105)}", 4)
+for r_ in (2, 3, 4):
+    for j in range(19):
+        for para in tbl.cell(r_, j).text_frame.paragraphs:
+            for run in para.runs:
+                if run.font.size is None:
+                    run.font.size = Pt(6)
+                if run.text == "":
+                    run.text = " "          # 빈 run은 LibreOffice에서 행 높이를 키움
+            end = para._p.find(qn("a:endParaRPr"))
+            if end is None:
+                end = etree.SubElement(para._p, qn("a:endParaRPr"))
+            end.set("sz", "600")
 cell_set(tbl.cell(5, 0), "■ ARS 200 L 충진 ('27.7~)")
 ars_tcpr = copy.deepcopy(tbl.cell(5, 1)._tc.tcPr)
 ars_rpr = copy.deepcopy(tbl.cell(5, 1).text_frame.paragraphs[0].runs[0]._r.find(qn("a:rPr")))
-plain_tcpr = copy.deepcopy(tbl.cell(2, 1)._tc.tcPr)
 tbl.cell(5, 1).split()
 for j in range(1, 19):
     cell_set(tbl.cell(5, j), "")
@@ -466,17 +513,18 @@ for u in range(2):
         gbar(lanes[3][1], st + 57, st + 75, "548235")
 for i_, c_ in enumerate(done):
     tbox(s2, X0 + c_ * kk - 0.17, 6.03, 0.34, 0.13, [(f"{(i_+1)*190:,}", 5.0, False, "2E75B6")], align="c")
-set_lines(d["TextBox 454"], [f"Capa. (연간 환산)", "26.2 → 47.2톤/년", "'27.7~'28.6 12개월 · 2027 실제 생산량 아님"])
+set_lines(d["TextBox 454"], ["Capa. 기준 (월 · 대정비 반영)", f"{f1(CM)} kg/월", f"(47,200 − 대정비 {f0(MK)}) ÷ 11 · 12개월 47.2톤"])
 set_lines(d["TextBox 456"], ["단순 2배 vs 개선 환산", "52.4 vs 47.2톤", f"차이 {K('x2_gap'):.1f}톤 = Mix·리사이클 준비 등 (확정 손실 아님)"])
-set_lines(d["TextBox 458"], ["설비별 등가 투입 간격", f"약 {K('rf_int_each'):.1f} h (2대)", f"47.2톤÷190 역산 · 현재 1대 {K('cp_int'):.1f} h · 45 h 단축 아님"])
-set_lines(d["TextBox 460"], ["105℃ 검토안", "50.2톤 (미확정)", "+3톤 · 열 안정성·Dimer·Unknown·Yield · 승인·시점 미정"])
-notes(s2, f"""[2장 To-be — 정제기 2대 운영과 투자 계획 (Excel 03_Capacity_Model 8절, 05_Reflux_Scenarios)]
-■ 정제기: As-is 1대 단일 설비 순차 생산 → To-be 정제기 1·2를 시간차를 두고 병행 운전. 정제기 1을 먼저 투입·가동한 뒤 투입·초류 진행 상황과 충진 처리능력을 고려해 정제기 2를 기동하고, 두 설비 운전 구간을 겹치되 제품이 한꺼번에 충진으로 몰리지 않도록 배치. 고객별 전용 정제기 없음 — 전체 설비 자원 안에서 고객 물량 배정.
-■ 시차·설비별 간격: 미확정. Gantt의 시차 {off:.0f} h·설비별 간격 {gint:.1f} h는 운영 개념 설명용 가정(동시 기동·24 h 고정 아님). 설비별 간격 {gint:.1f} h = 47.2톤 ÷ 190 kg = {47200/190:.1f} Batch/년을 2대로 나눈 역산 참고값(현재 1대 26.2톤 등가 {K('cp_int'):.1f} h 대비 +{K('rf_int_diff'):.1f} h — Mix·리사이클 준비 등 가능성, 구성 미확인). 정제 45 h를 22.5 h로 단축하는 계산이 아님.
-■ Capa.: 26.2 + 21 = 47.2톤/년(최초 12개월 '27.7~'28.6 연간 환산). 현재 단순 2배 52.4톤과의 차이 {K('x2_gap'):.1f}톤은 보조 작업·공유 자원 등 가능성 — 확정 손실로 표시하지 않음. 2027 실제 생산량은 공사 중 가동·시운전 양품·출하 승인·초기 안정화를 반영해 별도 산정(4장).
-■ 충진: 5 Gal은 글로브 박스 유지(ARS 미적용). 200 L ARS는 '26 설치 → '27.7 운영 시작 — 이지켐·한솔 모두 '27.1~6 수동, '27.7~ ARS, 2028 전월 ARS. ARS 충진시간은 미확인 입력값. ARS 효과는 정제 Capa.에 가산하지 않음.
-■ 공용 후공정: 2대 합산 평균 투입 간격 {K('rf_int_all'):.1f} h — 1교대(8 h/일) 충진 시 18 h 작업 = 경과 54 h로 Tank·충진 회전 부족({K('tk1_tobe'):.1f} h), 2교대 시 여유 {K('tk2_tobe'):.1f} h (Product Tank 1기 가정, 03 시트 10절).
-■ 2028 검토안: 103→105℃, +3톤 → 50.2톤(산술) · 목표 2028년 이후 50톤 수준 · 미확정·적용 시점 미정·검증 및 승인 필요(열 안정성, Dimer, Unknown impurity, Yield).""")
+set_lines(d["TextBox 458"], ["설비별 등가 투입 간격", f"약 {K('rf_int_each'):.1f} h (2대)", f"{f1(CM)}÷190 = {K('rf_bm'):.1f} Batch/월 역산 · 현재 1대 {K('cp_int'):.1f} h"])
+set_lines(d["TextBox 460"], ["2028 105℃ 기준", f"50.2톤 · {f1(CM105)} kg/월", f"+3톤 · (50,200 − {f0(MK)}) ÷ 11 · 품질 검증·승인 필요"])
+notes(s2, f"""[2장 To-be — 정제기 2대 운영과 투자 계획 (Excel P2·01_Inputs F·G, 03_Capacity_Model 8절, 05_Reflux_Scenarios 1~2절)]
+■ 일정: '27.1~3 정제기 1대 확정 생산 계획 2,178 / 2,178 / 3,168 kg → '27.4 대정비(생산 {f0(MK)} kg, 확정) → '27.5부터 정제기 2대 시간차 운전. 최초 12개월 '27.5~'28.4. 대정비는 매년 4월({f0(MK)} kg) 반영. ARS 200 L 운영 '27.7~(이지켐·한솔 '27.1~6 수동).
+■ Capa. 기준: 연간 47.2톤(26.2 + 21)은 유지하되 대정비 월이 있으므로 월 기준 = (47,200 − {f0(MK)}) ÷ 11 = {f1(CM)} kg/월 → 대정비 월 {f0(MK)} + 11개월 × {f1(CM)} = 47,200 kg. 2028년은 105℃ +3톤 → 50.2톤 기준: (50,200 − {f0(MK)}) ÷ 11 = {f1(CM105)} kg/월.
+■ 정제기: As-is 1대 단일 설비 순차 생산 → To-be 정제기 1·2 시간차 병행 운전. 정제기 1을 먼저 투입·가동한 뒤 충진 처리능력을 고려해 정제기 2를 기동, 제품이 한꺼번에 충진으로 몰리지 않도록 배치. 고객별 전용 정제기 없음.
+■ 시차·설비별 간격: 미확정. Gantt의 시차 {off:.0f} h·설비별 {gint:.1f} h는 설명용 가정 — 월 {f1(CM)} kg ÷ 190 = {K('rf_bm'):.1f} Batch/월(2대 합산)을 평균 월 730 h로 역산한 참고값(현재 1대 26.2톤 등가 {K('cp_int'):.1f} h). 정제 45 h를 22.5 h로 단축하는 계산이 아님.
+■ 단순 2배 52.4톤과 47.2톤의 차이 {K('x2_gap'):.1f}톤은 Mix·리사이클 준비 등 가능성 — 확정 손실로 표시하지 않음.
+■ 충진: 5 Gal 글로브 박스 유지(ARS 미적용). ARS 충진시간 미확인. ARS 효과는 정제 Capa.에 가산하지 않음. 공용 후공정: 2대 합산 평균 투입 간격 {K('rf_int_all'):.1f} h — 1교대 충진 시 Tank·충진 회전 {K('tk1_tobe'):.1f} h, 2교대 시 {K('tk2_tobe'):.1f} h (Product Tank 1기 가정).
+■ 105℃(2028 50.2톤 기준): 열 안정성, Dimer, Unknown impurity, Yield, 고객 승인 — 품질 검증 필요.""")
 
 # ============================================================ SLIDE 3 — 과거 Batch + 2026
 d = shapes(s3)
@@ -600,21 +648,25 @@ def year_slide(slide, yr):
     tbl = d["Table 166"].table
     unmerge_all(tbl)
     hx, cx, ez, hs, tot = mrow("U", yr), mrow("V", yr), mrow("W", yr), mrow("X", yr), mrow("Y", yr)
-    capr, need, gb = mrow("T", yr), mrow("Z", yr), mrow("AB", yr)
+    plan, need, gb = mrow("R", yr), mrow("Z", yr), mrow("AB", yr)
     cez, chs, mez, mhs = mrow("AD", yr), mrow("AE", yr), mrow("AF", yr), mrow("AG", yr)
+    cum = mrow("AQ", yr)
     sr = MAP["SR"][str(yr)]
     tot_y = M[f"Y{sr}"].value
     ann = lambda col: M[f"{col}{sr}"].value
+    plan_y = sum(plan)
+    CM, CM105, MK = K("capa_m"), K("capa_m105"), K("maint_kg")
+    inv, low = K("inv_need"), K("inv_low")
     rows = [[None] * 14]
     if yr == 2027:
-        rows.append(["적용 조건", "현재 1대", "공사 (가동 여부 확인)", "", "", "", "시운전", "정제기 2대 · 초기 안정화 확인", "", "", "", "", "", ""])
-        rows.append(["참고 Capa. 월 환산 (÷12)"] + [f1(v) for v in capr] + [f0(ann("T"))])
-        rows.append(["실제 생산 가능량", f0(K("p27_1")), "미확인 (공사 중 가용시간)", "", "", "", "미확인", "미확인 (설비별 간격·Batch량)", "", "", "", "", "", f"부분 {f0(K('p27_1'))}"])
+        rows.append(["운전 조건", "현재 정제기 1대 (확정 계획)", "", "", "대정비", f"정제기 2대 · Capa. 기준 (47,200 − {f0(MK)}) ÷ 11", "", "", "", "", "", "", "", ""])
+        rows.append(["생산 계획 (1~4월 확정)"] + [f1(v) if k >= 4 else f0(v) for k, v in enumerate(plan)] + [f0(plan_y)])
+        rows.append(["Batch 환산 (÷190)"] + [f1(v / 190) for v in plan] + [f1(plan_y / 190)])
     else:
-        rows.append(["적용 조건", "정제기 2대 · 최초 12개월 ('27.7~'28.6)", "", "", "", "", "", "정제기 2대 · 47.2톤 기준 (105℃ 적용 시점 미정)", "", "", "", "", "", ""])
-        rows.append(["참고 Capa. 47.2 (÷12)"] + [f1(v) for v in capr] + [f0(ann("T"))])
-        rows.append(["105℃ 검토안 50.2 (÷12)"] + [f1(50200 / 12)] * 12 + ["50,200"])
-    rows.append(["참고 Capa. − 출하"] + [sg(a - b) for a, b in zip(capr, tot)] + [sg(ann("T") - tot_y)])
+        rows.append(["운전 조건", "정제기 2대 · 105℃ 50.2톤", "", "", "대정비", f"정제기 2대 · 105℃ (50,200 − {f0(MK)}) ÷ 11", "", "", "", "", "", "", "", ""])
+        rows.append(["생산 계획 (50.2톤 기준)"] + [f1(v) if v != MK else f0(v) for v in plan] + [f0(plan_y)])
+        rows.append(["참고: 47.2톤 기준"] + [f1(CM) if v != MK else f0(v) for v in plan] + ["47,200"])
+    rows.append(["생산 계획 − 출하"] + [sg(a - b) for a, b in zip(plan, tot)] + [sg(plan_y - tot_y)])
     rows.append(["■ SK하이닉스"] + [f1(v) for v in hx] + [f0(ann("U"))])
     rows.append(["■ CXMT"] + [f0(v) for v in cx] + [f0(ann("V"))])
     rows.append(["■ 이지켐"] + [f0(v) for v in ez] + [f0(ann("W"))])
@@ -626,13 +678,15 @@ def year_slide(slide, yr):
     rows.append(["한솔 용기 (150 kg)"] + [f0(v) for v in chs] + [f"{ann('AE'):.0f}용기"])
     if yr == 2027:
         rows.append(["200 L 충진 방식", "이지켐·한솔 수동 (이지켐 8 h/용기 · 한솔 시간 확인)", "", "", "", "", "", "이지켐·한솔 ARS '27.7~ (충진시간 확인 입력)", "", "", "", "", "", "확인"])
-        rows.append(["상·하반기 비교 (t)", f"상반기 출하 {K('sh27h1'):.2f} vs 26.2×6/12 = {K('cap27h1'):.1f} (참고)", "", "", "", "", "",
-                     f"하반기 출하 {K('sh27h2'):.2f} vs 47.2×6/12 = {K('cap27h2'):.1f} → {abs(K('d27_h2')):.2f} 부족 방향", "", "", "", "", "", f"{K('sh27'):.1f}"])
-        rows.append(["재고 (기초 / 기말)", "기초재고 미입력 → 계산 보류 · 2027.12 기말재고 → 2028.1 기초재고로 연결 (Excel 04)", "", "", "", "", "", "", "", "", "", "", "", "보류"])
     else:
         rows.append(["200 L 충진 방식", "이지켐 · 한솔 ARS (충진시간 확인 입력) · 5 Gal 글로브 박스 유지", "", "", "", "", "", "", "", "", "", "", "", "확인"])
-        rows.append(["실제 생산 가능량", "미확인 — 설비별 간격·Batch량·양품률 입력 시 계산 (Excel 04) · 연간 환산값과 구분", "", "", "", "", "", "", "", "", "", "", "", "보류"])
-        rows.append(["재고 (기초 / 기말)", "2027.12 기말재고 → 2028.1 기초재고 연결 · 미확인 시 0 초기화 안 함", "", "", "", "", "", "", "", "", "", "", "", "보류"])
+    rows.append(["누적 (생산 − 출하) '27.1~"] + [sg(v) for v in cum] + [sg(cum[-1])])
+    if yr == 2027:
+        rows.append(["필요 선행재고", f"'27.1.1 기준 {inv/1000:.2f}톤 = 누적 최저 ('{low:%y.%-m} 대정비 월) · 기초재고 미입력 → 재고 계산 보류 · '27.12 기말재고 → '28.1 이월 (Excel 04·05)",
+                     "", "", "", "", "", "", "", "", "", "", "", f0(inv)])
+    else:
+        rows.append(["재고 (이월)", f"'27.12 누적 {sg(K('end27')/1000, 2)}톤 이월 · '28.4 대정비 월 누적 {sg(K('low28')/1000, 2)}톤 · '28.12 {sg(K('end28')/1000, 2)}톤 · 필요 선행재고 {inv/1000:.2f}톤 ('27.1.1)",
+                     "", "", "", "", "", "", "", "", "", "", "", f0(inv)])
     table_rows(tbl, rows)
     for r_ in tbl.rows:
         r_.height = Emu(int(0.168 * E))
@@ -644,18 +698,15 @@ def year_slide(slide, yr):
                 for r in p.runs:
                     r.font.size = Pt(6.0)
     set_lines(d["TextBox 10"], [f"- {4 if yr == 2027 else 5} -"]); set_lines(d["타원 6"], [str(4 if yr == 2027 else 5)])
-    if yr == 2027:
-        merges = [(1, 2, 5), (1, 7, 12), (3, 2, 5), (3, 7, 12), (14, 1, 6), (14, 7, 12), (15, 1, 6), (15, 7, 12), (16, 1, 12)]
-    else:
-        merges = [(1, 1, 6), (1, 7, 12), (14, 1, 12), (15, 1, 12), (16, 1, 12)]
+    merges = [(1, 1, 3), (1, 5, 12), (16, 1, 12)] + ([(14, 1, 6), (14, 7, 12)] if yr == 2027 else [(14, 1, 12)])
     for r, a, b in merges:
         ensure_merge(tbl, r, a, b)
-    UNKF, CONF = "FFF2CC", "FBE5D6"
-    fills = {(1, 2): CONF, (1, 6): UNKF} if yr == 2027 else {}
+    MAINT, FIX, RF = "D9D9D9", "DDEBF7", "FDE9E7"
+    fills = {(1, 4): MAINT, (2, 4): MAINT, (1, 5): RF}
     if yr == 2027:
-        fills.update({(3, 2): UNKF, (3, 6): UNKF, (3, 7): UNKF})
+        fills.update({(2, j): FIX for j in (1, 2, 3)})
     else:
-        fills.update({(15, 1): UNKF})
+        fills.update({(1, 1): RF})
     normalize_table(tbl, fills)
     # 하단 블록(②·③)을 표 길이에 맞춰 이동, 주석은 표 바로 아래
     for sh in slide.shapes:
@@ -672,72 +723,89 @@ def year_slide(slide, yr):
                         r.font.color.rgb = RGBColor.from_string("C00000")
                     elif r.text.startswith("+"):
                         r.font.color.rgb = RGBColor.from_string("385723")
+    # 생산 계획 행 = 강조 · 참고 행 = 회색 (2027 Batch 행은 1대 과거 최대 11 초과 월만 빨강)
+    for i, (bold, col) in ((2, (True, "1F3864")), (3, (False, "7F7F7F"))):
+        for j in range(1, 14):
+            for p in tbl.cell(i, j).text_frame.paragraphs:
+                for r in p.runs:
+                    r.font.bold = bold; r.font.color.rgb = RGBColor.from_string(col)
+                    if yr == 2027 and i == 3 and j <= 3 and r.text and float(r.text) > K("mx_kgm") / 190:
+                        r.font.bold = True; r.font.color.rgb = RGBColor.from_string("C00000")
     return d
 
 
 d = year_slide(s4, 2027)
 set_lines(d["TextBox 2"], ["2027년 월별 출하와 공급 대응"])
-set_lines(d["TextBox 5"], [f"출하계획 43.4톤 · 현재 26.2톤 대비 17.2톤 초과 · 하반기 24.56 vs 참고 23.6톤"])
-set_lines(d["TextBox 165"], [["① 2027 월별 출하 · 참고 Capa. · 충진 (kg)", "   참고 Capa. = 연간 환산 ÷ 12 (공사·시운전·안정화 미반영) · 실제 생산 가능량은 조건 확인 후 계산"]])
-set_lines(d["TextBox 167"], [f"* 하이닉스 22,720÷12 = 1,893.33 kg/월(표시 반올림) · CXMT 7,000 · 이지켐 10,080 (72용기) · 한솔 3,600 (24용기) · 5 Gal 병 상당 = (하이닉스+CXMT)÷20, 실제 20 kg 정수 배분 · 실제 생산 1월 = 관측 {K('basis_int'):.1f} h 기준 {K('pb27_1'):.0f} Batch"])
-set_lines(d["TextBox 169"], [["② 2027 연간 환산 기준 비교", "   확정 부족량·판매 가능량 아님"]] if len(d["TextBox 169"].text_frame.paragraphs[0].runs) > 1 else ["② 2027 연간 환산 기준 비교 (확정 부족량 아님)"])
-kp4 = [("현재 Capa. 대비", ["43.4 vs 26.2", " 톤"], "17.2톤 초과 → 개선·선행 생산 필요"),
-       ("개선 환산 47.2톤 대비", [f"+{K('d27_rf'):.1f}", " 톤"], "연간 환산값 — 2027 실제 여유 아님"),
-       ("하반기 출하 vs 참고 Capa.", ["24.56 vs 23.6", " 톤"], f"{abs(K('d27_h2')):.2f}톤 부족 방향 (47.2×6/12 균등 참고)"),
-       ("2027 생산 − 출하 (시나리오)", [f"{K('S2_d27')/1000:.1f} ~ {K('S3_d27')/1000:.1f}".replace("-", "−"), " 톤"], "S2 공사 중 유지 ~ S3 50%·안정화 3개월 (Excel 05)")]
+CM, CM105, MK = K("capa_m"), K("capa_m105"), K("maint_kg")
+P27, D27, INV, LOW = K("plan27"), K("d27"), K("inv_need"), K("inv_low")
+set_lines(d["TextBox 2"], ["2027년 월별 생산 계획과 출하"])
+set_lines(d["TextBox 5"], [f"출하 43.4톤 vs 생산 계획 {P27/1000:.2f}톤 → {sg(D27/1000, 2)}톤 · 4월 대정비 · 필요 선행재고 {INV/1000:.2f}톤"])
+set_lines(d["TextBox 165"], [["① 2027 월별 생산 계획 · 출하 · 충진 (kg)", f"   1~4월 확정 (4월 대정비 {f0(MK)}) · 5~12월 Capa. 기준 = (47,200 − {f0(MK)}) ÷ 11 = {f1(CM)} kg"]])
+set_lines(d["TextBox 167"], ["* 하이닉스 22,720÷12 = 1,893.33 kg/월(표시 반올림) · CXMT 7,000 · 이지켐 10,080 (72용기) · 한솔 3,600 (24용기) · 5 Gal 병 상당 = (하이닉스+CXMT)÷20, 실제 20 kg 정수 배분 · 생산 계획 = 양품률 100% 상한 · 파랑 = 확정 · 회색 = 대정비"])
+set_lines(d["TextBox 169"], [["② 2027 생산 계획 vs 출하", "   대정비 반영 Capa. 기준 · 양품률 100% 상한"]] if len(d["TextBox 169"].text_frame.paragraphs[0].runs) > 1 else ["② 2027 생산 계획 vs 출하"])
+kp4 = [("현재 Capa. 대비", ["43.4 vs 26.2", " 톤"], "17.2톤 초과 → 대정비 후 정제기 2대 필요"),
+       ("2027 생산 계획 vs 출하", [f"{P27/1000:.2f} vs {K('sh27'):.2f}", " 톤"], f"{sg(D27/1000, 2)}톤 · 1~4월 확정 {K('plan27_fix')/1000:.2f} + 5~12월 {K('plan27_rf')/1000:.2f}"),
+       ("하반기 출하 vs 계획", [f"{K('sh27h2'):.2f} vs {K('cap27h2'):.2f}", " 톤"], f"{sg(K('d27_h2'), 2)}톤 · {f1(CM)} kg × 6 (상반기 {sg(K('d27_h1'), 2)}톤)"),
+       ("필요 선행재고 ('27.1.1)", [f"{INV/1000:.2f}", " 톤"], f"누적 최저 '{LOW:%y.%-m} 대정비 월 · 1~4월 출하 > 생산")]
 for (a, b_, c_), base in zip(kp4, (171, 175, 179, 183)):
     set_lines(d[f"TextBox {base}"], [a]); set_lines(d[f"TextBox {base+1}"], [b_]); set_lines(d[f"TextBox {base+2}"], [c_])
+for base, v in ((176, D27), (180, K("d27_h2")), (184, -INV)):
+    for r in d[f"TextBox {base}"].text_frame.paragraphs[0].runs:
+        r.font.color.rgb = RGBColor.from_string("C00000" if v < 0 else "385723")
 set_lines(d["TextBox 187"], ["③ 정제 · 충진 자원 제약 (월 기준)"])
-kp4b = [("정제기 1~6월 (1대)", ["필요 14.5~17.5 vs 약 11", " Batch/월"], f"관측 {K('ob_int'):.1f} h 기준 · 공사 중 가동 미확인"),
-        ("정제기 7~12월 (2대)", ["필요 21.5 vs 20.7", " Batch/월"], "47.2톤÷12÷190 · 설비별 간격 미확인"),
+pb = [v / 190 for v in mrow("R", 2027)]
+kp4b = [("정제기 1~3월 (1대 확정)", [f"{pb[0]:.1f} · {pb[1]:.1f} · {pb[2]:.1f}", " Batch/월"], f"3월 {K('b_mar'):.1f} Batch > 과거 최대 11 · 근거 확인"),
+        ("정제기 5~12월 (2대)", [f"{K('b_rf'):.1f} vs 필요 17.5~21.5", " Batch/월"], f"{f1(CM)}÷190 · 설비별 등가 {K('rf_int_each'):.1f} h"),
         ("5 Gal 글로브 박스", ["189.3 ~ 267.3", " h/월"], f"연 {K('gb27'):,.0f} h · 1교대 176 h의 {K('gb_ld1')*100:.0f}% (최대)"),
         ("200 L (이지켐+한솔)", ["6 → 10", " 용기/월"], f"연 {K('c200_27'):.0f}용기 · OQC 2 h/용기 · 한솔·ARS 시간 확인")]
 for (a, b_, c_), base in zip(kp4b, (189, 193, 197, 201)):
     set_lines(d[f"TextBox {base}"], [a]); set_lines(d[f"TextBox {base+1}"], [b_]); set_lines(d[f"TextBox {base+2}"], [c_])
-notes(s4, f"""[4장 2027년 월별 출하와 공급 대응 (Excel 01_Inputs K, 04_Monthly_2026_2028, 05_Reflux_Scenarios)]
-■ 출하계획(kg): 하이닉스 22,720÷12 = 1,893.33/월(표시 반올림, 연간 22,720 유지) · CXMT 1~2월 0 / 3~6월 580 / 7~12월 780 = 7,000 · 이지켐 1~6월 560 / 7~12월 1,120 = 10,080 · 한솔 1~12월 300 = 3,600 → 합계 43,400 kg = 43.4톤. 월 합계 1~2월 2,753.3 / 3~6월 3,333.3 / 7~12월 4,093.3.
-■ 연간 환산 비교: 현재 26.2톤 대비 17.2톤 초과 · 개선 후 47.2톤과 3.8톤 차이(연간 환산 — 2027 실제 여유 아님). 상반기 출하 18.84톤 / 하반기 24.56톤, 하반기 균등 가동 참고 47.2×6/12 = 23.6톤 → 0.96톤 부족 방향.
-■ 2027 실제 생산: 1월 현재 조건(관측 {K('basis_int'):.2f} h) {K('pb27_1'):.0f} Batch = {f0(K('p27_1'))} kg. 2~5월 공사 중 가동, 6월 시운전 양품·출하 승인, 7월 이후 설비별 간격·Batch량·초기 안정화가 미확인 → 연간 실제 생산량은 부분합계로 보류(0 또는 정상값 임의 입력 안 함).
-■ 시나리오(참고, Excel 05): S1 공사 중 중단 → 2027 생산 {K('S1_p')/1000:.1f}톤(생산−출하 {K('S1_d27')/1000:.1f}톤) · S2 공사 중 현재 유지 → {K('S2_p')/1000:.1f}톤({K('S2_d27')/1000:.1f}톤) · S3 50%·안정화 3개월 → {K('S3_p')/1000:.1f}톤({K('S3_d27')/1000:.1f}톤). 개선 안정 후 47.2톤÷12 = 3,933 kg/월은 상한 참고 → 2027 대응에는 선행 생산·현재고 확인이 핵심.
-■ 필요 Batch(출하÷190): 1~2월 14.5 / 3~6월 17.5 / 7~12월 21.5 Batch/월, 연 {K('nb27'):.1f} Batch (동일 Batch 다고객 배분 — 시간 중복 계산 안 함).
-■ 충진: 5 Gal (하이닉스+CXMT)÷20×2 h = 189.3 / 247.3 / 267.3 h/월, 연 2,972 h (OQC 별도 연 {K('ac27'):.0f} h). 월평균 병 수는 병 상당 — 실제는 20 kg 정수 용기 배분. 200 L: 이지켐 4→8용기, 한솔 2용기 → 6 / 10용기/월, 연 96용기(이지켐 72 + 한솔 24), OQC 연 {K('al27'):.0f} h. 이지켐·한솔 1~6월 수동, 7월~ ARS — 충진시간 미확인 고객은 확정하지 않음(공통 8 h 적용 가정 시 연 {K('ak27'):.0f} h, 비교용).
-■ 재고: 기말재고 = 기초재고 + 출하 가능 양품 생산량 − 출하량 / 필요 생산량 = 출하량 + 목표 기말재고 − 기초재고. 하이닉스 출하·목표재고 우선 → 나머지 고객 배분(우선순위 미확인 시 출하 비율). 2027.12 기말재고 → 2028.1 기초재고 연결.""")
+cum27 = mrow("AQ", 2027)
+notes(s4, f"""[4장 2027년 월별 생산 계획 · 출하 · 공급 대응 (Excel P4, 04_Monthly_2026_2028, 05_Reflux_Scenarios 3~5절)]
+■ 생산 계획(kg): 1월 2,178 / 2월 2,178 / 3월 3,168 / 4월 {f0(MK)}(대정비) = {f0(K('plan27_fix'))} kg 확정. 5~12월은 Capa. 기준 = (47,200 − 대정비 {f0(MK)}) ÷ 11 = {f1(CM)} kg/월 × 8 = {f0(K('plan27_rf'))} kg → 2027 생산 계획 {f0(P27)} kg = {P27/1000:.2f}톤. (47.2톤 = 대정비 월 {f0(MK)} + 11개월 × {f1(CM)} — 대정비가 있으므로 ÷12가 아니라 ÷11.)
+■ 출하계획(kg): 하이닉스 22,720÷12 = 1,893.33/월 · CXMT 1~2월 0 / 3~6월 580 / 7~12월 780 = 7,000 · 이지켐 1~6월 560 / 7~12월 1,120 = 10,080 · 한솔 300/월 = 3,600 → 43,400 kg. 월 합계 1~2월 2,753.3 / 3~6월 3,333.3 / 7~12월 4,093.3.
+■ 생산 계획 − 출하: 연간 {sg(D27/1000, 2)}톤 · 상반기 출하 {K('sh27h1'):.2f} vs 계획 {K('cap27h1'):.2f}톤({sg(K('d27_h1'), 2)}) · 하반기 {K('sh27h2'):.2f} vs {K('cap27h2'):.2f}톤({sg(K('d27_h2'), 2)}).
+■ 누적(생산 − 출하, '27.1~): {' / '.join(f"{m+1}월 {sg(v)}" for m, v in enumerate(cum27))} kg → 최저 '{LOW:%y.%-m} {sg(-INV)} kg = 2027.1.1 기준 필요 선행재고 {INV/1000:.2f}톤(양품률 100% 상한 기준 — 양품률·목표재고 반영 시 증가). 5월 이후 월 +{f1(CM - 3333.33)}(5~6월) / +{f1(CM - 4093.33)}(7~12월) kg씩 회복.
+■ 확인: 3월 3,168 kg = {K('b_mar'):.1f} Batch로 현재 정제기 1대 과거 최대 11 Batch(관측 약 {K('ob_b31'):.1f} Batch/31일)를 넘음 — 확정 계획의 근거(재고·선행 생산 포함 여부) 확인 필요. 5~12월 {K('b_rf'):.1f} Batch/월(2대 합산, 설비별 등가 {K('rf_int_each'):.1f} h).
+■ 필요 Batch(출하÷190): 1~2월 14.5 / 3~6월 17.5 / 7~12월 21.5 Batch/월, 연 {K('nb27'):.1f} Batch.
+■ 충진: 5 Gal (하이닉스+CXMT)÷20×2 h = 189.3 / 247.3 / 267.3 h/월, 연 2,972 h (OQC 별도 연 {K('ac27'):.0f} h). 200 L: 이지켐 4→8용기, 한솔 2용기 → 연 96용기, OQC 연 {K('al27'):.0f} h. 이지켐·한솔 1~6월 수동, 7월~ ARS(충진시간 미확인).
+■ 재고: 기말재고 = 기초재고 + 양품 생산 − 출하. 기초재고 미입력 → 재고 계산 보류. 2027.12 기말재고 → 2028.1 기초재고 연결.""")
 
 d = year_slide(s5, 2028)
 sh28, ez28m = K("sh28"), K("ez28") / 12
 mt28 = sh28 * 1000 / 12
-db, d105 = K("d28_base"), K("d28_105")
-dirb = "부족 방향" if db < 0 else "여유 방향"
-set_lines(d["TextBox 2"], ["2028년 월별 출하 가정과 Capa. 대응"])
-set_lines(d["TextBox 5"], [f"출하 가정 {sh28:.2f}톤 · 47.2톤 대비 {sg(db, 2)}톤 ({dirb}) · 105℃ 50.2톤 검토"])
-set_lines(d["TextBox 165"], [["① 2028 월별 출하 가정 · 참고 Capa. · 충진 (kg)", f"   하이닉스·CXMT·한솔 2027 하반기 수준 유지 · 이지켐 월 {ez28m:,.0f} kg — 확정 고객 수요 아님"]])
-set_lines(d["TextBox 167"], [f"* 하이닉스 22,720÷12 · CXMT 780 · 이지켐 {ez28m:,.0f} · 한솔 300 kg/월 (가정 — 2027 연간 43.4톤 복제 아님) · 105℃는 미확정 검토안으로 별도 비교 · 실제 생산량은 연간 환산값과 구분"])
-set_lines(d["TextBox 169"], [["② 2028 연간 환산 비교", "   확정 부족량·판매 가능량 아님"]] if len(d["TextBox 169"].text_frame.paragraphs[0].runs) > 1 else ["② 2028 연간 환산 비교"])
+dp, d47 = K("d28_plan"), K("d28_47")
+set_lines(d["TextBox 2"], ["2028년 월별 생산 계획과 출하 가정"])
+set_lines(d["TextBox 5"], [f"출하 가정 {sh28:.2f}톤 vs 생산 계획 50.2톤 (105℃) → {sg(dp, 2)}톤 · 47.2 기준 {sg(d47, 2)}톤"])
+set_lines(d["TextBox 165"], [["① 2028 월별 생산 계획 · 출하 가정 · 충진 (kg)", f"   105℃ 50.2톤 = 4월 대정비 {f0(MK)} + 11개월 × {f1(CM105)} kg · 출하 가정은 확정 수요 아님"]])
+set_lines(d["TextBox 167"], [f"* 하이닉스 22,720÷12 · CXMT 780 · 이지켐 {ez28m:,.0f} · 한솔 300 kg/월 (가정) · 105℃ 50.2톤 = 2028 기준 (품질 검증·승인 필요) · 47.2톤 행 = 105℃ 미적용 시 참고 · 양품률 100% 상한"])
+set_lines(d["TextBox 169"], [["② 2028 생산 계획 vs 출하 가정", "   50.2톤 기준 · 대정비 반영"]] if len(d["TextBox 169"].text_frame.paragraphs[0].runs) > 1 else ["② 2028 생산 계획 vs 출하 가정"])
 kp5 = [("출하 가정 (2028)", [f"{sh28:.2f}", " 톤"], f"{mt28:,.1f} kg/월 × 12 · 확정 수요 아님"),
-       ("기본: 47.2톤 기준", [sg(db, 2), " 톤"], f"{dirb} · 확정 부족량·판매 가능량 아님"),
-       ("105℃ 12개월 적용 시 (50.2)", [sg(d105, 2), " 톤"], "여유 방향 · 검토안 · 승인·시점 미정"),
-       ("24개월 필요 선행재고 (참고)", [f"{K('S2_inv')/1000:.1f} ~ {K('S3_inv')/1000:.1f}", " 톤"], "'27.1.1 기준 · 시나리오 S2~S3 (Excel 05)")]
+       ("50.2톤 계획 기준", [sg(dp, 2), " 톤"], f"여유 방향 · {f1(CM105)} kg × 11 + {f0(MK)}"),
+       ("참고: 47.2톤 기준", [sg(d47, 2), " 톤"], f"105℃ 미적용 시 · {f1(CM)} kg × 11 + {f0(MK)}"),
+       ("필요 선행재고 ('27.1.1)", [f"{K('inv_need')/1000:.2f}", " 톤"], f"누적 최저 '{K('inv_low'):%y.%-m} · '28.4 대정비 월 {sg(K('low28')/1000, 2)}톤")]
 for (a, b_, c_), base in zip(kp5, (171, 175, 179, 183)):
     set_lines(d[f"TextBox {base}"], [a]); set_lines(d[f"TextBox {base+1}"], [b_]); set_lines(d[f"TextBox {base+2}"], [c_])
-for base, v in ((176, db), (180, d105)):
+for base, v in ((176, dp), (180, d47), (184, -1)):
     for r in d[f"TextBox {base}"].text_frame.paragraphs[0].runs:
         r.font.color.rgb = RGBColor.from_string("C00000" if v < 0 else "385723")
 c200m = (K("ez28") / 140 + K("hs28") / 150) / 12
-set_lines(d["TextBox 187"], ["③ 재고 이월 · 추가 개선 · 품질 · 충진 자원 검토"])
-kp5b = [("재고 이월", ["'27.12 → '28.1", ""], "기초·목표재고 입력 · 하이닉스 우선 확보"),
-        ("추가 개선", [f"설비별 ≤ {K('rf_int_each'):.1f}", " h"], "Mix·준비·대기 단축 · 105℃ 검토"),
+set_lines(d["TextBox 187"], ["③ 재고 이월 · 설비 · 품질 · 충진 자원 검토"])
+kp5b = [("누적 '27.12 → '28.12", [f"{sg(K('end27')/1000, 2)} → {sg(K('end28')/1000, 2)}", " 톤"], "생산 − 출하 누적 · 기초·목표재고 입력"),
+        ("설비별 등가 간격", [f"약 {K('rf_int_105'):.1f}", " h"], f"{f1(CM105)}÷190 = {K('b_105'):.1f} Batch/월 역산"),
         ("충진 자원", [f"267.3 h · {c200m:.0f}", " 용기/월"], f"5 Gal 연 {K('gb28'):,.0f} h (1교대 {K('gb_ld1')*100:.0f}%) · 200 L 연 {K('c200_28'):.0f}용기"),
-        ("105℃ 검토안 확인", ["승인 · 적용 시점", ""], "열 안정성·Dimer·Unknown·Yield · 이지켐 색도")]
+        ("105℃ 품질 확인", ["검증 · 고객 승인", ""], "열 안정성·Dimer·Unknown·Yield · 이지켐 색도")]
 for (a, b_, c_), base in zip(kp5b, (189, 193, 197, 201)):
     set_lines(d[f"TextBox {base}"], [a]); set_lines(d[f"TextBox {base+1}"], [[t for t in b_ if t]]); set_lines(d[f"TextBox {base+2}"], [c_])
-lows = " / ".join(f"{s_} {K(s_ + '_inv')/1000:.1f}톤('{K(s_ + '_low')})" for s_ in ("S1", "S2", "S3"))
-notes(s5, f"""[5장 2028년 월별 출하 가정과 Capa. 대응 (Excel 01_Inputs K, 04_Monthly_2026_2028, 05_Reflux_Scenarios 3·5절)]
-■ 출하 가정(확정 고객 수요 아님): 하이닉스 22,720÷12 · CXMT 780 · 한솔 300 kg/월은 2027년 하반기 수준 유지, 이지켐은 월 {ez28m:,.0f} kg (사용자 수정, 2027 하반기 1,120 kg 아님) → {mt28:,.2f} kg/월 × 12 = {K('sh28')*1000:,.0f} kg = {sh28:.2f}톤 (CXMT {K('cx28'):,.0f} · 이지켐 {K('ez28'):,.0f} · 한솔 {K('hs28'):,.0f}). 01_Inputs K에서 독립 변경 가능.
-■ 연간 환산 비교(확정 부족량·판매 가능량 아님): 기본 47.2톤 기준 47.2 − {sh28:.2f} = {sg(db, 2)}톤({dirb}) · 105℃ 검토안 12개월 적용 시 50.2 − {sh28:.2f} = {sg(d105, 2)}톤(여유 방향). 105℃는 미확정·적용 시점 미정·검증 및 승인 필요 → 기본 시나리오는 47.2톤, 적용 시점 확정 시 01_Inputs '105℃ 적용 시작 월' 입력 → 04 시트 월별 반영.
-■ 필요 Batch: {K('nb28')/12:.1f} Batch/월, 연 {K('nb28'):.1f} Batch(190 kg). 47.2톤 환산 20.7 Batch/월. 설비별 등가 간격 {K('rf_int_each'):.1f} h·Batch량·양품률이 대응 조건.
-■ 충진: 5 Gal 267.3 h/월, 연 {K('gb28'):,.0f} h (OQC 별도 연 {K('ac28'):.0f} h) · 200 L 이지켐 {K('ez28')/140/12:.0f} + 한솔 2 = {c200m:.0f}용기/월, 연 {K('c200_28'):.0f}용기, 전월 ARS — ARS 충진시간 미확인(공통 8 h 적용 가정 시 연 {K('ak28'):.0f} h). 정제기 720 h를 인력 근무시간으로 적용하지 않음.
-■ 재고: 2027.12 기말재고 → 2028.1 기초재고 연결(미확인 시 0 초기화 안 함). 시나리오 기준 2027.1.1 필요 선행재고(누적 최저 시점) {lows}. 하이닉스 공급·목표재고 우선, 다른 고객 우선순위는 확인값.
-■ 확인: 105℃ 열 안정성·Dimer·Unknown impurity·Yield 영향·고객 승인·적용 시점 / 이지켐 색도 합격률 / 글로브 박스 교대 / 2028 수요 확정.""")
+cum28 = mrow("AQ", 2028)
+notes(s5, f"""[5장 2028년 월별 생산 계획과 출하 가정 (Excel P5, 04_Monthly_2026_2028, 05_Reflux_Scenarios 3~5절)]
+■ 생산 계획: 2028년은 105℃ 적용으로 +3톤 → 50.2톤 기준(사용자 지시). 4월 대정비 {f0(MK)} kg + 나머지 11개월 × (50,200 − {f0(MK)}) ÷ 11 = {f1(CM105)} kg → 50,200 kg. 105℃ 미적용 시 참고 47.2톤 기준은 {f1(CM)} kg × 11 + {f0(MK)}.
+■ 출하 가정(확정 수요 아님): 하이닉스 22,720÷12 · CXMT 780 · 이지켐 {ez28m:,.0f} · 한솔 300 kg/월 → {mt28:,.2f} kg/월 × 12 = {sh28*1000:,.0f} kg = {sh28:.2f}톤.
+■ 생산 계획 − 출하: 50.2톤 기준 {sg(dp, 2)}톤(여유 방향) · 47.2톤 기준이면 {sg(d47, 2)}톤. 월 +{f1(CM105 - mt28)} kg, 4월 대정비 월 {sg(MK - mt28)} kg.
+■ 누적(생산 − 출하, '27.1~): '27.12 {sg(K('end27'))} kg에서 시작 → {' / '.join(f"{m+1}월 {sg(v)}" for m, v in enumerate(cum28))} kg. 4월 대정비 월 누적 {sg(K('low28'))} kg — 24개월 최저는 '{K('inv_low'):%y.%-m} {sg(-K('inv_need'))} kg → 2027.1.1 필요 선행재고 {K('inv_need')/1000:.2f}톤.
+■ 설비: 105℃ 월 {f1(CM105)} kg ÷ 190 = {K('b_105'):.1f} Batch/월(2대) — 설비별 등가 간격 약 {K('rf_int_105'):.1f} h. 필요 Batch(출하÷190) {K('nb28')/12:.1f} Batch/월.
+■ 충진: 5 Gal 267.3 h/월, 연 {K('gb28'):,.0f} h (OQC 별도 연 {K('ac28'):.0f} h) · 200 L 이지켐 {K('ez28')/140/12:.0f} + 한솔 2 = {c200m:.0f}용기/월, 연 {K('c200_28'):.0f}용기, 전월 ARS(충진시간 미확인).
+■ 확인: 105℃ 열 안정성·Dimer·Unknown impurity·Yield 영향·고객 승인(50.2톤 기준의 전제) / 이지켐 색도 합격률 / 글로브 박스 교대 / 2028 수요 확정.""")
 
 prs.save(OUT)
 print("saved", OUT)
