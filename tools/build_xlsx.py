@@ -1006,10 +1006,15 @@ for t, who, eff in (("표시일자 의미 · 실제 시각 · 계획 대비 실�
     row += 1
 wsS.freeze_panes = "A4"
 
+from ppt_sheets import add_ppt_sheets
+C["lt0"] = lt0
+add_ppt_sheets(wb, R, C, {"M0": M0, "SR": SR, "B0": B0, "BL": BL, "SUMROW": SUMROW, "CMP0": CMP0, "CMPY": CMPY})
 for ws in wb.worksheets:
     ws.sheet_view.zoomScale = 90
-    ws.sheet_properties.tabColor = {"01_Inputs": "2E75B6", "02_Batch_Raw": "7F7F7F", "03_Capacity_Model": "EB002C",
-                                    "04_Monthly_2026_2028": "FF7900", "05_Reflux_Scenarios": "70AD47", "06_Report_Summary": "404040"}[ws.title]
+    tc = {"01_Inputs": "2E75B6", "02_Batch_Raw": "7F7F7F", "03_Capacity_Model": "EB002C",
+          "04_Monthly_2026_2028": "FF7900", "05_Reflux_Scenarios": "70AD47", "06_Report_Summary": "404040"}.get(ws.title)
+    if tc:
+        ws.sheet_properties.tabColor = tc
 wb.save(OUT)
 json.dump({"KPI": KPI, "M0": M0, "SR": SR, "MX": MX, "SUMROW": SUMROW, "SHIP": {str(k): v for k, v in SHIP.items()}, "CMP0": CMP0,
            "MS0": MS0, "GD0": GD0, "G0": C["g0"], "GN": C["gn"], "RES": RES, "CMPY": CMPY}, open(OUT + ".map.json", "w"), ensure_ascii=False)
