@@ -252,7 +252,7 @@ inp("ez27b", "이지켐 2027 7~12월", 1120, "kg/월", "", "계획", USER, "8용
 inp("hs27", "한솔 2027 월", 300, "kg/월", "1~12월", "계획", USER, "2용기 · 연 3,600 kg", "kg0")
 inp("hx28", "하이닉스 2028 연간", 22720, "kg/년", "2027 하반기 수준 유지 가정", "가정", USER, "확정 고객 수요 아님", "kg0")
 inp("cx28", "CXMT 2028 월", 780, "kg/월", "2027 하반기 수준 유지 가정", "가정", USER, "", "kg0")
-inp("ez28", "이지켐 2028 월", 1120, "kg/월", "2027 하반기 수준 유지 가정", "가정", USER, "", "kg0")
+inp("ez28", "이지켐 2028 월", 840, "kg/월", "2028 가정 (사용자 수정 · 2027 하반기 1,120 아님)", "가정", "사용자 수정 지시 (2026-10-01)", "6용기/월 · 연 10,080 kg", "kg0")
 inp("hs28", "한솔 2028 월", 300, "kg/월", "2027 하반기 수준 유지 가정", "가정", USER, "", "kg0")
 last_input_row = r - 1
 wsI.auto_filter.ref = f"A5:G{last_input_row}"
@@ -292,7 +292,7 @@ grow("이지켐", 2027, [f"=IF({m+1}<7,{R('ez27a')},{R('ez27b')})" for m in rang
 grow("한솔", 2027, [f"={R('hs27')}"] * 12, "calc", "계획", USER, "월 300 kg (2용기)", (2027, "hs"))
 grow("하이닉스", 2028, [f"={R('hx28')}/12"] * 12, "calc", "가정", USER, "2027 하반기 수준 유지 가정", (2028, "hx"))
 grow("CXMT", 2028, [f"={R('cx28')}"] * 12, "calc", "가정", USER, "2027 하반기 수준 유지 가정", (2028, "cx"))
-grow("이지켐", 2028, [f"={R('ez28')}"] * 12, "calc", "가정", USER, "2027 하반기 수준 유지 가정", (2028, "ez"))
+grow("이지켐", 2028, [f"={R('ez28')}"] * 12, "calc", "가정", "사용자 수정 지시 (2026-10-01)", "월 840 kg 가정 (2027 하반기 수준과 다름)", (2028, "ez"))
 grow("한솔", 2028, [f"={R('hs28')}"] * 12, "calc", "가정", USER, "2027 하반기 수준 유지 가정", (2028, "hs"))
 for yr in (2026, 2027, 2028):
     rows_ = [SHIP[(yr, k)] for k in ("hx", "cx", "ez", "hs")]
@@ -302,11 +302,11 @@ for yr in (2026, 2027, 2028):
         col = CL(3 + m)
         fx = "=" + "+".join(f"N({col}{x})" for x in rows_) if m < 12 else f"=SUM(C{r}:N{r})"
         style_cell(wsI.cell(row=r, column=3 + m, value=fx), "key", "kg")
-    for col, v in ((16, "합계"), (17, "수식"), (18, {2026: "CXMT·한솔 미제시분 미포함", 2027: "검증 43,400 kg", 2028: "검증 49,120 kg"}[yr])):
+    for col, v in ((16, "합계"), (17, "수식"), (18, {2026: "CXMT·한솔 미제시분 미포함", 2027: "검증 43,400 kg", 2028: "검증 45,760 kg"}[yr])):
         style_cell(wsI.cell(row=r, column=col, value=v), "text")
     SHIP[(yr, "tot")] = r
     r += 1
-for yr, tgt in ((2026, 19220), (2027, 43400), (2028, 49120)):
+for yr, tgt in ((2026, 19220), (2027, 43400), (2028, 45760)):
     style_cell(wsI.cell(row=r, column=1, value=f"검증: {yr} 합계 = {tgt:,} kg"), "text")
     style_cell(wsI.cell(row=r, column=15, value=f'=IF(ABS(O{SHIP[(yr, "tot")]}-{tgt})<0.001,"일치","불일치")'), "key")
     wsI.conditional_formatting.add(f"O{r}", CellIsRule(operator="equal", formula=['"불일치"'], fill=red, font=redf))
@@ -780,7 +780,7 @@ for p_ in (("현재", dt.date(2026, 1, 1), f"={R('con_s')}-1", "1대", "단일 �
            ("시운전", f"={R('trial_s')}", f"={R('rf_s')}-1", "1·2", "시운전", "-", f'=IF(ISNUMBER({R("b_trial")}),{R("b_trial")}&" Batch","양품·출하 승인 미확인")', "계획"),
            ("개선 적용 생산", f"={R('rf_s')}", "", "2대", "시간차 병행", "한솔 ARS · 이지켐 ARS(전환 월 확인)", f'=IF(ISNUMBER({R("int_rf")}),{R("int_rf")}&" h/Batch","설비별 간격 미확인")', "계획"),
            ("최초 12개월", f"={R('rf_s')}", f"={R('f12_e')}", "2대", "", "", "47.2톤 연간 환산 기준", "제공"),
-           ("2028 기본", dt.date(2028, 1, 1), dt.date(2028, 12, 31), "2대", "", "ARS", "47.2톤 기준", "가정"),
+           ("2028 기본", dt.date(2028, 1, 1), dt.date(2028, 12, 31), "2대", "", "ARS", "47.2톤 기준 · 이지켐 월 840 kg 가정", "가정"),
            ("105℃ 검토안", f'=IF(ISNUMBER({R("t105")}),{R("t105")},"미정")', "", "2대", "103→105℃", "", "+3톤 · 50.2톤 산술", "검토안")):
     for j, v in enumerate(p_):
         style_cell(wsR.cell(row=row, column=1 + j, value=v), "link" if j in (1, 2) else "text", "yyyy-mm-dd" if j in (1, 2) else None)
@@ -814,8 +814,8 @@ for key, lab, sh, cap, note in (("26_now", "2026 제시분 vs 현재 26.2", f"={
                                 ("27_rf", "2027 출하 vs 개선 47.2 (연간 환산)", f"={SH(2027)}", f"={R('capa_rf')}", "3.8톤 — 2027 실제 여유 아님"),
                                 ("27_h1", "2027 상반기 출하 vs 26.2 × 6/12 (참고)", f"={h1}", f"={R('capa_now')}*6/12", "공사·시운전 미반영 참고"),
                                 ("27_h2", "2027 하반기 출하 vs 47.2 × 6/12 (균등 가동 참고)", f"={h2}", f"={R('capa_rf')}*6/12", "0.96톤 부족 방향"),
-                                ("28_base", "2028 출하 가정 vs 47.2 (기본)", f"={SH(2028)}", f"={R('capa_rf')}", "1.92톤 부족 방향"),
-                                ("28_105", "2028 출하 가정 vs 50.2 (105℃ 12개월 적용 시, 검토안)", f"={SH(2028)}", f"={R('capa_t')}", "1.08톤 여유 방향 — 미확정")):
+                                ("28_base", "2028 출하 가정 vs 47.2 (기본)", f"={SH(2028)}", f"={R('capa_rf')}", "기본 시나리오 — 방향은 E열"),
+                                ("28_105", "2028 출하 가정 vs 50.2 (105℃ 12개월 적용 시, 검토안)", f"={SH(2028)}", f"={R('capa_t')}", "검토안 — 미확정")):
     vals = [lab, sh, cap, f"=C{row}-B{row}", f'=IF(D{row}<0,"부족 방향","여유 방향")', "", "", note]
     for j, v in enumerate(vals):
         style_cell(wsR.cell(row=row, column=1 + j, value=v), "key" if j == 3 else ("text" if j in (0, 4, 7) else "link"), "t" if j in (1, 2, 3) else None)
@@ -878,7 +878,7 @@ header(wsR, row, ["시나리오 결과", "S1", "S2", "S3", "", "", "", "해석"]
 RES = {}
 for lab, fn, nf, desc in (("2027 생산 (kg)", lambda s: f"=SUM(B{SCN[s][0]}:M{SCN[s][0]})", "kg0", "참고 — 실제 아님"),
                           ("2027 생산 − 출하 (kg)", lambda s: f"=SUM(B{SCN[s][0]}:M{SCN[s][0]})-SUM(B{SHIPR}:M{SHIPR})", "kg0", ""),
-                          ("2028 생산 − 출하 (kg)", lambda s: f"=SUM(N{SCN[s][0]}:Y{SCN[s][0]})-SUM(N{SHIPR}:Y{SHIPR})", "kg0", "47.2 기준 시 −1,920"),
+                          ("2028 생산 − 출하 (kg)", lambda s: f"=SUM(N{SCN[s][0]}:Y{SCN[s][0]})-SUM(N{SHIPR}:Y{SHIPR})", "kg0", "47.2 균등 환산 기준"),
                           ("필요 선행재고 2027-01-01 (kg)", lambda s: f"=MAX(0,-MIN(B{SCN[s][1]}:Y{SCN[s][1]}))", "kg0", "24개월 결품 없이 대응할 최소 기초재고"),
                           ("누적 최저 시점", lambda s: f'=IF(MIN(B{SCN[s][1]}:Y{SCN[s][1]})<0,INDEX($B${BASE-1}:$Y${BASE-1},MATCH(MIN(B{SCN[s][1]}:Y{SCN[s][1]}),B{SCN[s][1]}:Y{SCN[s][1]},0)),"-")', None, "연.월")):
     style_cell(wsR.cell(row=row, column=1, value=lab), "text", bold=True)
