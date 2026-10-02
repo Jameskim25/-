@@ -178,62 +178,21 @@ st1 = r - 1
 a, b = st0, st1 - 2
 wsI.cell(row=ars_row, column=3).value = f'=IF(COUNT(C{a}:C{b})=0,"",SUM(C{a}:C{b}))'
 wsI.cell(row=ars_row + 1, column=3).value = f'=IF(COUNT(D{a}:D{b})=0,"",SUM(D{a}:D{b}))'
-head("D. Batch 생산량")
-row("KG_B", "Batch당 생산량 (환산 기준)", 190, "kg/Batch", "생산팀 언급 회수량은 09_확인사항에 별도 보존", nf="int")
+head("D. Batch 생산량 (생산팀 협의)")
+row("B_SIZE", "Batch size", 200, "kg", "생산팀 협의", nf="int")
+row("B_YIELD", "Yield", 0.99, "%", "", nf="0.0%")
+row("KG_B", "kg/Batch (Batch size × Yield)", "=B_SIZE*B_YIELD", "kg/Batch", "200 × 99% = 198 kg", "key", "kg1")
+row("B_TIME", "Batch time (협의)", 55, "h", "준비·투입 ~ FQC (IQC~FQC 57 h − IQC 2 h)")
+row("UNIT_RM", "원단위", 1.01, "", "", nf="0.000")
+row("MB_ONE", "정제기 1대 월 Batch (계획)", 12, "Batch/월", "12 × 198 = 2,376 kg", nf="int")
+row("MB_TWO", "정제기 2대 월 Batch (계획)", 20, "Batch/월", "20 × 198 = 3,960 kg", nf="int")
+row("MB_MAINT", "대정비 월 Batch ('27.4)", 6, "Batch/월", "6 × 198 = 1,188 kg", nf="int")
 head("E. Capa. 기준")
 row("CAPA_NOW", "현재 연간 Capa.", 26.2, "t/년", "", nf="t")
 row("CAPA_ADD", "리플럭스 증가분", 21, "t/년", "", nf="t")
 row("CAPA_RF", "개선 후 연간 Capa.", "=CAPA_NOW+CAPA_ADD", "t/년", "현재의 2배(52.4) 아님 — Mix·Premix 준비 등", "key", "t")
-row("CAPA_TADD", "105℃ 증가분 (2028)", 3, "t/년", "열 안정성·Dimer·Unknown·수율 검증 필요", nf="t")
-row("CAPA_105", "2028 Capa. (105℃)", "=CAPA_RF+CAPA_TADD", "t/년", "", "key", "t")
-row("MAINT_M", "대정비 월 (매년)", 4, "월", "", nf="int")
-row("RF_START", "정제기 2대 생산 시작", dt.date(2027, 5, 1), "", "대정비 다음 달", nf="d")
-row("T_105", "105℃ 적용 시작", dt.date(2028, 1, 1), "", "", nf="d")
-maint_row = r
-row("MAINT_KG", "대정비 월 생산량", None, "kg", "아래 2027년 4월 생산계획과 연결", "calc", "kg")
-row("CAPA_M", "월 Capa. (47.2톤 ÷ 11)", "=CAPA_RF*1000/11", "kg/월", "47,200 ÷ 11 · 대정비 월은 별도 (1,188 kg)", "key", "kg1")
-row("CAPA_M105", "월 Capa. (50.2톤 ÷ 11)", "=CAPA_105*1000/11", "kg/월", "50,200 ÷ 11 · 대정비 월은 별도 (1,188 kg)", "key", "kg1")
-head("F. 재고 · 품질")
-row("INV_0", "기초재고 (2027-01-01)", 2882, "kg", "재고 = 전월 재고 + 생산 − 출하", nf="kg")
-row("YIELD_Q", "양품률 (입력 시 재고에 반영)", None, "%", "공란이면 생산계획 그대로 재고 계산", nf="pct")
-
-# ---- 월별 입력: 생산계획 · 출하계획
+row("CAPA_TWO", "정제기 2대 계획 연간 (20 Batch × 12)", "=MB_TWO*KG_B*12/1000", "t/년", "47.2톤 계획 수준", "key", "t")
 r += 1
-section(wsI, r, "G. 월별 생산계획 (kg) — 2027년 1~4월은 확정치로 두 버전 공통"); r += 1
-PLAN = {}
-PLAN_B = {2027: [2178, 2178, 3168, 1188] + [3564] * 8,
-          2028: [3564, 3564, 3564, 1188, 3564, 3564, 3564, 3168, 3168, 3168, 3168, 3168]}
-for yr in (2027, 2028):
-    month_hdr(wsI, r, yr, total=f"{yr} 합계"); r += 1
-    put(wsI, r, 2, "기존 생산계획" + (" (1~4월 확정)" if yr == 2027 else ""), "lab")
-    for m in MONTHS:
-        put(wsI, r, 2 + m, PLAN_B[yr][m - 1], "in", "kg")
-    put(wsI, r, 15, f"=SUM(C{r}:N{r})", "key", "kg")
-    PLAN[yr] = r; r += 2
-wsI.cell(row=maint_row, column=3).value = f"=INDEX(C{PLAN[2027]}:N{PLAN[2027]},MAINT_M)"
-section(wsI, r, "H. 고객별 월 출하계획 (kg) — 2028년은 비교용 가정"); r += 1
-SHIP = {}
-SHIP_DEF = {
-    2026: {"hx": [1600, 1420, 1440, 1580, 1200, 1200, 1360, 1420, 1380, 1480, 1480, 1420], "cx": [None] * 12,
-           "ez": [0] * 8 + [560] * 4, "hs": [None] * 12},
-    2027: {"hx": ["=22720/12"] * 12, "cx": [0, 0, 580, 580, 580, 580] + [780] * 6, "ez": [560] * 6 + [840] * 6, "hs": [300] * 12},
-    2028: {"hx": ["=22720/12"] * 12, "cx": [780] * 12, "ez": [840] * 12, "hs": [300] * 12}}
-CUST = (("hx", "SK하이닉스"), ("cx", "CXMT"), ("ez", "이지켐"), ("hs", "한솔"))
-for yr in YEARS:
-    month_hdr(wsI, r, yr, label=f"{yr}", total="합계"); r += 1
-    for k, lab in CUST:
-        put(wsI, r, 2, lab, "lab")
-        for m in MONTHS:
-            v = SHIP_DEF[yr][k][m - 1]
-            put(wsI, r, 2 + m, v, "in" if v is not None else "ask", "kg1" if k == "hx" else "kg")
-        put(wsI, r, 15, f'=IF(COUNT(C{r}:N{r})=0,"미제시",SUM(C{r}:N{r}))', "calc", "kg")
-        SHIP[(yr, k)] = r; r += 1
-    put(wsI, r, 2, "합계", "sub")
-    for m in range(13):
-        col = CL(3 + m)
-        put(wsI, r, 3 + m, f"=SUM({col}{r - 4}:{col}{r - 1})", "key", "kg")
-    SHIP[(yr, "tot")] = r; r += 2
-put(wsI, r, 2, "2026 CXMT·한솔 미제시 칸은 0이 아니라 공란 · 하이닉스 22,720 ÷ 12 균등 · 이지켐 2027.7~ 840 kg/월", "note"); r += 2
 section(wsI, r, "I. 생산계획 Batch 완료일 — 완료일 = 해당 Batch의 생산 및 충진 완료 예정일 (Batch마다 독립)"); r += 1
 for j, lab in enumerate(("Batch No.", "완료일", "비고")):
     put(wsI, r, 2 + j, lab, "hdr", align="left" if j != 1 else None)
@@ -246,14 +205,6 @@ PLAN_DT1 = r - 1
 put(wsI, r, 2, "10월 완료 #82~#92 = 11 Batch · 행을 추가하면 03_Batch주기 계산 범위도 같이 조정", "note"); r += 1
 wsI.freeze_panes = "C5"
 Iq = q(wsI)
-
-
-def ship(yr, k, m):
-    return f"{Iq}${CL(2 + m)}${SHIP[(yr, k)]}"
-
-
-def plan_b(yr, m):
-    return f"{Iq}${CL(2 + m)}${PLAN[yr]}"
 
 
 # =============================================================== 02_공정시간
@@ -294,7 +245,7 @@ items = (("정제기 점유 확인분 (준비·투입 + 순수 정제)", "=T_PRE
          ("검사·승인 대기", '=IF(ISNUMBER(T_WAIT),T_WAIT,"확인 필요")', "h", ""),
          ("5 Gal 9병 충진 작업", "=FILL_5G*BOT_B", "h", "실제 작업시간"),
          ("5 Gal 9병 충진 경과 (근무시간 반영)", "=FILL_5G*BOT_B/WH_DAY", "근무일", "현장 설명 약 2일 · 교대·연장근무 조건 확인"),
-         ("190 kg − 5 Gal 9병 180 kg", "=KG_B-BOT_B*KG_BOT", "kg", "잔량·추가 충진·다른 고객 배분 확인 (손실 처리 안 함)"))
+         ("kg/Batch − 5 Gal 9병 180 kg", "=KG_B-BOT_B*KG_BOT", "kg", "잔량·추가 충진·다른 고객 배분 확인 (손실 처리 안 함)"))
 for i, (lab, fx, unit, note) in enumerate(items):
     rr = 17 + i
     put(ws, rr, 2, lab, "lab"); put(ws, rr, 3, fx, "calc", "0.0"); put(ws, rr, 4, unit)
@@ -367,11 +318,11 @@ for j, lab in enumerate(("기준", "정제기", "Batch/월", "kg/월", "연간 (
 r += 1
 CMP0 = r
 cmp_rows = (("이론 (순수 정제만)", "=N_NOW", "=INT(MH/T_REF)", "=D{r}*KG_B", "=E{r}*12/1000", "=T_REF", "=T_REF"),
-            ("10월 생산계획", "=N_NOW", "=PL_B", "=PL_KG", "=E{r}*12/1000", "=CYC_ASIS", "=T_PREP+T_REF"),
-            ("현재 Capa. 26.2톤", "=N_NOW", "=E{r}/KG_B", "=CAPA_NOW*1000/12", "=CAPA_NOW", "=8760/(CAPA_NOW*1000/KG_B)", "=T_PREP+T_REF"),
-            ("기존 생산계획 ('27.5~)", "=N_NEW", "=E{r}/KG_B", f"={plan_b(2027, 5)}", "-", "=N_NEW*730/D{r}", "=T_PREP+T_REF"),
-            ("Capa. 47.2톤 기준", "=N_NEW", "=E{r}/KG_B", "=CAPA_M", "=CAPA_RF", "=N_NEW*730/D{r}", "=T_PREP+T_REF"),
-            ("2028 105℃ 50.2톤 기준", "=N_NEW", "=E{r}/KG_B", "=CAPA_M105", "=CAPA_105", "=N_NEW*730/D{r}", "=T_PREP+T_REF"))
+            ("10월 생산계획 (#82~#92)", "=N_NOW", "=PL_B", "=PL_KG", "=E{r}*12/1000", "=CYC_ASIS", "=T_PREP+T_REF"),
+            ("정제기 1대 계획 (월 12 Batch)", "=N_NOW", "=MB_ONE", "=D{r}*KG_B", "=E{r}*12/1000", "=730/D{r}", "=T_PREP+T_REF"),
+            ("정제기 2대 계획 (월 20 Batch)", "=N_NEW", "=MB_TWO", "=D{r}*KG_B", "=E{r}*12/1000", "=N_NEW*730/D{r}", "=T_PREP+T_REF"),
+            ("현재 Capa. 26.2톤", "=N_NOW", "=E{r}/KG_B", "=CAPA_NOW*1000/12", "=CAPA_NOW", "=730/D{r}", "=T_PREP+T_REF"),
+            ("리플럭스 47.2톤", "=N_NEW", "=E{r}/KG_B", "=CAPA_RF*1000/12", "=CAPA_RF", "=N_NEW*730/D{r}", "=T_PREP+T_REF"))
 for i, vals in enumerate(cmp_rows):
     rr = r + i
     for j, v in enumerate(vals):
@@ -381,9 +332,9 @@ for i, vals in enumerate(cmp_rows):
 REF["cmp0"] = (ws.title, f"B{CMP0}")
 r += len(cmp_rows) + 1
 section(ws, r, "⑤ 정제기 2대 운영 예시 — 완료 = 투입 + 5 Gal 실제 소요 (대기 포함)"); r += 1
-put(ws, r, 2, "설비별 투입 간격 (월 Capa. 역산)", "lab")
-put(ws, r, 3, '=IF(ISNUMBER(INT_NEXT),INT_NEXT,N_NEW*(8760/12)/(CAPA_M/KG_B))', "key", "h"); nm("INT_RF", ws, r, 3)
-put(ws, r, 4, "2대 × 평균 월 730 h ÷ (월 Capa. ÷ 190)", "note"); r += 1
+put(ws, r, 2, "설비별 투입 간격 (월 20 Batch 역산)", "lab")
+put(ws, r, 3, '=IF(ISNUMBER(INT_NEXT),INT_NEXT,N_NEW*(8760/12)/MB_TWO)', "key", "h"); nm("INT_RF", ws, r, 3)
+put(ws, r, 4, "2대 × 평균 월 730 h ÷ 20 Batch", "note"); r += 1
 put(ws, r, 2, "설비별 대기 (주기 − 순수 47 h)", "lab"); put(ws, r, 3, "=INT_RF-T_PREP-T_REF", "key", "h"); nm("WAIT_RF", ws, r, 3); r += 1
 put(ws, r, 2, "정제기 2 투입 시차 (가정)", "lab"); put(ws, r, 3, "=OFFSET_H", "calc", "h"); r += 1
 put(ws, r, 2, "예시 월 · 시간", "lab"); put(ws, r, 3, "=TOBE_M", "calc", "d"); put(ws, r, 4, "=DAY(EOMONTH(TOBE_M,0))*24", "calc", "h0")
@@ -407,63 +358,156 @@ put(ws, r, 2, "이 달 완료 Batch / kg", "sub"); put(ws, r, 3, f"=SUM(F{TB0}:F
 REF["tobe_b"] = (ws.title, f"C{r}"); REF["tobe_kg"] = (ws.title, f"D{r}")
 REF["tb0"] = (ws.title, f"B{TB0}"); REF["tobe_int"] = REF["INT_RF"]; REF["tobe_off"] = REF["OFFSET_H"]
 r += 1
-put(ws, r, 2, "월 Batch 상당 (월 Capa. ÷ 190)", "lab"); put(ws, r, 3, "=CAPA_M/KG_B", "key", "b"); REF["tobe_bm"] = (ws.title, f"C{r}")
+put(ws, r, 2, "정제기 2대 계획 월 Batch", "lab"); put(ws, r, 3, "=MB_TWO", "key", "b"); REF["tobe_bm"] = (ws.title, f"C{r}")
 
 # ---- 04_Capa기준
 ws = wsK
-title(ws, "04_Capa기준 | 연간 Capa. → 월 기준 · 운영 일정 · 2026 출하", "대정비 월이 있으므로 개선 후 월 Capa.는 (연간 − 대정비 월 생산) ÷ 11.")
-widths(ws, {"B": 30, **{CL(i): 11 for i in range(3, 16)}})
-section(ws, 4, "① Capa. 기준")
-for j, lab in enumerate(("구분", "연간 (t)", "월 기준 (kg)", "Batch/월", "적용", "산식")):
+title(ws, "04_Capa기준 | 월 Batch 기준 생산능력 · 리플럭스 도입 일정 (Case별)", "kg/Batch = Batch size 200 kg × Yield 99% = 198 kg.")
+widths(ws, {"B": 32, **{CL(i): 12 for i in range(3, 9)}, "H": 40})
+section(ws, 4, "① 생산능력 기준")
+for j, lab in enumerate(("구분", "월 Batch", "kg/월", "연간 (t)", "적용", "비고")):
     put(ws, 5, 2 + j, lab, "hdr", align="left" if j in (0, 5) else None)
-caps = (("현재 (정제기 1대 · 103℃)", "=CAPA_NOW", "=CAPA_NOW*1000/12", "'27.1~3", "26.2 ÷ 12"),
-        ("리플럭스 후 (정제기 2대)", "=CAPA_RF", "=CAPA_M", "'27.5~", "47,200 ÷ 11 · 대정비 월 1,188 kg 별도"),
-        ("2028 105℃ 적용", "=CAPA_105", "=CAPA_M105", "'28.1~", "50,200 ÷ 11 · 대정비 월 1,188 kg 별도"),
-        ("참고: 현재의 단순 2배", "=CAPA_NOW*2", "=C{r}*1000/12", "적용 안 함", "Mix·Premix 준비 등으로 2배 아님"))
-for i, (lab, an, mo, when, basis) in enumerate(caps):
+caps = (("정제기 1대 (현재)", "=MB_ONE", "1대 운영 기간", "12 × 198 kg"),
+        ("정제기 2대 (리플럭스 후)", "=MB_TWO", "운전 시작 다음 달~", "20 × 198 kg · 47.2톤 계획 수준"),
+        ("대정비 월 ('27.4)", "=MB_MAINT", "'27.4", "6 × 198 kg"),
+        ("리플럭스 도입 다음 달 (Case I·II '27.2)", "=16", "'27.2", "16 × 198 kg (가동 시작 월)"))
+for i, (lab, b_, when, note_) in enumerate(caps):
     rr = 6 + i
-    put(ws, rr, 2, lab, "lab"); put(ws, rr, 3, an, "key", "t"); put(ws, rr, 4, mo.replace("{r}", str(rr)), "key", "kg1")
-    put(ws, rr, 5, f"=D{rr}/KG_B", "calc", "b"); put(ws, rr, 6, when); put(ws, rr, 7, basis, "note")
-put(ws, 10, 2, "대정비 월 생산 (매년 4월)", "lab"); put(ws, 10, 3, "=MAINT_KG/1000", "calc", "t"); put(ws, 10, 4, "=MAINT_KG", "key", "kg")
-section(ws, 12, "② 운영 일정")
-for j, lab in enumerate(("구분", "시작", "종료", "내용")):
-    put(ws, 13, 2 + j, lab, "hdr", align="left" if j in (0, 3) else None)
-sched = (("현재 정제기 1대", dt.date(2027, 1, 1), "=DATE(2027,MAINT_M,1)-1", "확정 생산 2,178 · 2,178 · 3,168 kg"),
-         ("대정비 (매년)", "=DATE(2027,MAINT_M,1)", "=EOMONTH(DATE(2027,MAINT_M,1),0)", "생산 1,188 kg"),
-         ("정제기 2대 생산", "=RF_START", "", "투입 시점을 엇갈려 병행 운전"),
-         ("최초 12개월", "=RF_START", "=EDATE(RF_START,12)-1", "47.2톤 기준 (대정비 1개월 포함)"),
-         ("ARS 200 L 충진", "=MIN(ARS_EZ_S,ARS_HS_S)", "", "이지켐·한솔 200 L · 5 Gal은 글로브 박스 유지"),
-         ("105℃ (50.2톤)", "=T_105", "", "품질 검증·승인 필요"))
-for i, (lab, s_, e_, t_) in enumerate(sched):
+    put(ws, rr, 2, lab, "lab"); put(ws, rr, 3, b_, "calc", "int"); put(ws, rr, 4, f"=C{rr}*KG_B", "key", "kg")
+    put(ws, rr, 5, f"=D{rr}*12/1000" if i < 2 else "-", "calc", "t"); put(ws, rr, 6, when); put(ws, rr, 7, note_, "note")
+put(ws, 10, 2, "참고: 현재 Capa. 26.2톤 · 리플럭스 47.2톤", "lab"); put(ws, 10, 3, "=CAPA_NOW*1000/12/KG_B", "calc", "b")
+put(ws, 10, 4, "=CAPA_NOW*1000/12", "calc", "kg"); put(ws, 10, 5, "=CAPA_RF", "calc", "t"); put(ws, 10, 7, "월 Batch는 26.2톤 기준 환산", "note")
+section(ws, 12, "② Case별 리플럭스 도입 일정")
+for j, lab in enumerate(("Case", "판매", "리플럭스 도입", "운전 시작", "비고")):
+    put(ws, 13, 2 + j, lab, "hdr", align="left")
+for i, (c_, sale, a_, b_, nt) in enumerate((("Case I", "계획 比 CXMT·이지켐 조정", dt.date(2027, 1, 1), dt.date(2027, 2, 1), ""),
+                                            ("Case II", "추가 물량 (월 300 kg)", dt.date(2027, 1, 1), dt.date(2027, 2, 1), ""),
+                                            ("Case III", "추가 물량 (월 300 kg)", dt.date(2027, 4, 1), dt.date(2027, 5, 1), "외부 상품 도입 반영 필요"))):
     rr = 14 + i
-    put(ws, rr, 2, lab, "lab"); put(ws, rr, 3, s_, "calc", "d"); put(ws, rr, 4, e_, "calc", "d"); put(ws, rr, 5, t_, "note")
-section(ws, 21, "③ 2026 출하 (제시분) vs 현재 Capa.")
-month_hdr(ws, 22, 2026)
-put(ws, 23, 2, "출하 (제시분)", "lab")
-for m in MONTHS:
-    put(ws, 23, 2 + m, f"={Iq}{CL(2 + m)}{SHIP[(2026, 'tot')]}", "calc", "kg")
-put(ws, 23, 15, "=SUM(C23:N23)", "key", "kg")
-put(ws, 24, 2, "현재 Capa. 월 환산", "lab")
-for m in MONTHS:
-    put(ws, 24, 2 + m, "=CAPA_NOW*1000/12", "calc", "kg")
-put(ws, 24, 15, "=SUM(C24:N24)", "key", "kg")
-put(ws, 25, 2, "Capa. − 출하", "lab")
-for m in range(13):
-    put(ws, 25, 3 + m, f"={CL(3 + m)}24-{CL(3 + m)}23", "calc", "sg")
-put(ws, 26, 2, "CXMT·한솔 2026 물량 미제시 (합계 제외)", "note")
-REF["sh26"] = (ws.title, "O23")
+    put(ws, rr, 2, c_, "lab"); put(ws, rr, 3, sale, "calc", align="left"); put(ws, rr, 4, a_, "in", "d"); put(ws, rr, 5, b_, "in", "d")
+    put(ws, rr, 6, nt, "note")
 
-# =============================================================== 08_후공정부하 (05·06이 참조하므로 먼저 생성)
-wsA = wb.create_sheet("05_월별_Capa기준")
-wsB = wb.create_sheet("06_월별_생산계획")
-wsV = wb.create_sheet("07_버전비교")
-wsL = wb.create_sheet("08_후공정부하")
+# =============================================================== 05~07 Case 시트
+M16 = [(2026, m) for m in (9, 10, 11, 12)] + [(2027, m) for m in MONTHS]
+SKH27 = [1900, 1700, 1900, 1880, 1860, 1860, 1900, 1900, 1940, 1940, 1940, 2000]
+CX27 = [0, 0, 0, 580, 580, 580] + [780] * 6
+EZ27 = [560] * 5 + [840] * 7
+CASES = (
+    ("I", "05_Case1", "판매 : 계획 比 CXMT, 이지켐 물량 조정", "생산 : 1월 Reflux Column 도입 운영 (2월 운전)", "",
+     [12, 16, 20, 6] + [20] * 8, [0] * 12,
+     [1.7, 1.6, 1.6, 1.6, 1.4, 1.8, 2.4, 1.5, 1.8, 1.9, 1.8, 1.9, 1.9, 2.0, 2.1, 2.2],
+     [1.7, 1.7, 1.9, 2.0, 2.1, 2.5, 3.3, 2.0, 2.5, 2.8, 3.1, 3.3, 3.5, 3.6, 3.8, 4.0],
+     [None] * 7 + [2.0, 2.3, 2.3, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8]),
+    ("II", "06_Case2", "판매 : 추가 물량", "생산 : 1월 Reflux Column 도입 운영 (2월 운전)", "",
+     [12, 16, 20, 6] + [20] * 8, [300] * 12,
+     [1.7, 1.6, 1.6, 1.6, 1.3, 1.4, 1.8, 0.9, 1.1, 1.1, 1.1, 1.0, 1.0, 1.0, 1.1, 1.1],
+     [1.7, 1.7, 1.9, 2.0, 1.9, 2.1, 2.7, 1.3, 1.7, 1.8, 1.9, 2.0, 2.0, 2.1, 2.1, 2.1],
+     [None] * 7 + [1.3] + [1.5] * 8),
+    ("III", "07_Case3", "판매 : 추가 물량", "생산 : 4월 Reflux Column 도입 운영 (5월 운전)", "→ 외부 상품 도입 반영 필요",
+     [12, 12, 12, 6] + [20] * 8, [300] * 12,
+     [1.7, 1.6, 1.6, 1.6, 1.3, 1.1, 0.9, 0.0, 0.2, 0.3] + [0.4] * 6,
+     [1.7, 1.7, 1.9, 2.0, 1.9, 1.6, 1.3, 0.0, 0.4, 0.6, 0.7, 0.7, 0.8, 0.8, 0.9, 0.9],
+     [None] * 7 + [0.0, 0.3, 0.5, 0.5, 0.5, 0.6, 0.6, 0.6, 0.6]))
+CROW = {}
+
+
+def case_sheet(key, name, sale_t, prod_t, note_t, b27, add27, d_tot, d_sk, d_skc):
+    ws = wb.create_sheet(name)
+    title(ws, f"{name} | Case {key} — 2026.9 ~ 2027.12 생산 · 판매 · 재고 (kg)", "파란 글자 = 협의 자료 입력 · 검정 = 계산 (생산 = Batch × kg/Batch, 재고 = 전월 재고 + 생산 − 판매).")
+    widths(ws, {"B": 26, **{CL(i): 8.5 for i in range(3, 19)}, "S": 10})
+    ws["B3"] = sale_t; ws["B4"] = prod_t; ws["B5"] = note_t
+    for c_ in ("B3", "B4", "B5"):
+        ws[c_].font = font(BLACK, True, 10)
+    ws["B5"].font = font(RED, True, 10)
+    put(ws, 7, 2, "", "hdr"); put(ws, 7, 3, "2026년", "hdr"); ws.merge_cells("C7:F7"); put(ws, 7, 7, "2027년", "hdr"); ws.merge_cells("G7:R7")
+    put(ws, 7, 19, "", "hdr")
+    put(ws, 8, 2, "구분 (kg)", "hdr", align="left")
+    for i, (y, m) in enumerate(M16):
+        put(ws, 8, 3 + i, dt.date(y, m, 1), "hdr", NF["m"])
+    put(ws, 8, 19, "27년 합계", "hdr")
+    keys = ("batch", "prod", "sale", "skh", "cx", "ez", "add", "skc", "diff", "inv", "d_tot", "d_sk", "d_skc")
+    labs = {"batch": "Batch (월)", "prod": "생산", "sale": "판매", "skh": "SKH", "cx": "CXMT", "ez": "이지켐", "add": "추가",
+            "skc": "SKHY + CXMT", "diff": "생산 − 판매", "inv": "재고", "d_tot": "재고일 (총판매량, 개월)", "d_sk": "재고일 (SKHY 물량 기준)",
+            "d_skc": "재고일 (SKHY·CXMT 합계 기준)"}
+    pos = {k: 9 + i for i, k in enumerate(keys)}
+    for k in keys:
+        put(ws, pos[k], 2, labs[k], "sub" if k in ("prod", "sale", "inv") else "lab")
+    sale26 = [2090, 2120, 2080, 2100]; skh26 = [1640, 1420, 1520, 1400]; ez26 = [450, 560, 560, 560]
+    for i, (y, m) in enumerate(M16):
+        c = CL(3 + i); j = i - 4
+        put(ws, pos["batch"], 3 + i, "-" if i == 0 else (12 if y == 2026 else b27[j]), "calc" if i == 0 else "in", "int")
+        put(ws, pos["prod"], 3 + i, 1770 if i == 0 else f"={c}{pos['batch']}*KG_B", "in" if i == 0 else "key", "kg")
+        put(ws, pos["sale"], 3 + i, sale26[i] if y == 2026 else f"=SUM({c}{pos['skh']}:{c}{pos['add']})", "in" if y == 2026 else "key", "kg")
+        for k_, v26, v27 in (("skh", skh26, SKH27), ("cx", [None] * 4, CX27), ("ez", ez26, EZ27), ("add", [None] * 4, add27)):
+            v = v26[i] if y == 2026 else v27[j]
+            put(ws, pos[k_], 3 + i, v, "in" if v is not None else "calc", "kg")
+        put(ws, pos["skc"], 3 + i, f"=N({c}{pos['skh']})+N({c}{pos['cx']})", "calc", "kg")
+        put(ws, pos["diff"], 3 + i, f"={c}{pos['prod']}-{c}{pos['sale']}", "calc", "sg")
+        put(ws, pos["inv"], 3 + i, 2300 if i == 0 else f"={CL(2 + i)}{pos['inv']}+{c}{pos['prod']}-{c}{pos['sale']}", "in" if i == 0 else "key", "kg")
+        for k_, arr in (("d_tot", d_tot), ("d_sk", d_sk), ("d_skc", d_skc)):
+            put(ws, pos[k_], 3 + i, arr[i], "in" if arr[i] is not None else "calc", '0.0"개월"')
+    for k in keys:
+        if k in ("d_tot", "d_sk", "d_skc"):
+            put(ws, pos[k], 19, "", "calc")
+        elif k == "inv":
+            put(ws, pos[k], 19, f"=R{pos[k]}", "key", "kg")
+        else:
+            put(ws, pos[k], 19, f"=SUM(G{pos[k]}:R{pos[k]})", "key", "sg" if k == "diff" else ("int" if k == "batch" else "kg"))
+    ws.conditional_formatting.add(f"C{pos['inv']}:S{pos['inv']}", CellIsRule(operator="lessThan", formula=["500"], fill=fill("FFC7CE"), font=Font(color=RED, bold=True)))
+    ws.conditional_formatting.add(f"C{pos['d_tot']}:R{pos['d_skc']}", CellIsRule(operator="lessThan", formula=["0.5"], font=Font(color=RED, bold=True)))
+    rr = pos["d_skc"] + 2
+    put(ws, rr, 2, "26년 연간 (협의 자료)", "lab"); put(ws, rr, 3, "생산", "calc"); put(ws, rr, 4, 20908, "in", "kg")
+    put(ws, rr, 5, "판매", "calc"); put(ws, rr, 6, 19740, "in", "kg"); put(ws, rr, 7, "재고", "calc"); put(ws, rr, 8, f"=F{pos['inv']}", "calc", "kg")
+    put(ws, rr + 1, 2, "재고일은 협의 자료 값 (산식 확인 필요) · 2026년 판매는 협의 자료 합계 그대로 (10·12월 고객 합과 140 kg 차이)", "note")
+    pos["hdr"] = 8
+    ws.freeze_panes = "C9"
+    return ws, pos
+
+
+CWS = {}
+for key, name, sale_t, prod_t, note_t, b27, add27, d_tot, d_sk, d_skc in CASES:
+    CWS[key], CROW[key] = case_sheet(key, name, sale_t, prod_t, note_t, b27, add27, d_tot, d_sk, d_skc)
+
+# =============================================================== 08_Case비교
+ws = wb.create_sheet("08_Case비교")
+title(ws, "08_Case비교 | Case I · II · III — 2027 생산 · 판매 · 재고", "재고 = 전월 재고 + 생산 − 판매 (26.9말 재고 2,300 kg에서 시작).")
+widths(ws, {"B": 30, **{CL(i): 9 for i in range(3, 20)}})
+section(ws, 4, "① 2027년 Case 비교")
+hd = ("Case", "리플럭스", "2027 Batch", "2027 생산", "2027 판매", "생산 − 판매", "'27 말 재고", "최저 재고", "최저 시점", "최저 재고일 (총판매)")
+for j, lab in enumerate(hd):
+    put(ws, 5, 2 + j, lab, "hdr", align="left" if j == 0 else None)
+for i, key in enumerate(("I", "II", "III")):
+    rr = 6 + i; X = q(CWS[key]); P = CROW[key]
+    rng = f"{X}$G${P['inv']}:$R${P['inv']}"; hrng = f"{X}$G${P['hdr']}:$R${P['hdr']}"
+    vals = [f"Case {key}", ("'27.1 도입 · '27.2 운전" if key != "III" else "'27.4 도입 · '27.5 운전"), f"={X}S{P['batch']}", f"={X}S{P['prod']}",
+            f"={X}S{P['sale']}", f"=E{rr}-F{rr}", f"={X}S{P['inv']}", f"=MIN({rng})", f"=INDEX({hrng},MATCH(MIN({rng}),{rng},0))",
+            f"=MIN({X}G{P['d_tot']}:R{P['d_tot']})"]
+    for j, v in enumerate(vals):
+        put(ws, rr, 2 + j, v, "lab" if j == 0 else ("key" if j in (5, 6, 7) else "calc"),
+            [None, None, "int", "kg", "kg", "sg", "kg", "kg", "ym", '0.0"개월"'][j])
+    REF[f"case{key}"] = (ws.title, f"B{rr}")
+section(ws, 10, "② 월별 재고 (kg) · 재고일 (총판매량, 개월)")
+put(ws, 11, 2, "구분", "hdr", align="left")
+for i, (y, m) in enumerate(M16):
+    put(ws, 11, 3 + i, dt.date(y, m, 1), "hdr", "ym")
+r = 12
+for key in ("I", "II", "III"):
+    X = q(CWS[key]); P = CROW[key]
+    for lab, k_, nf in ((f"Case {key} 재고", "inv", "kg"), (f"Case {key} 재고일", "d_tot", '0.0"개월"')):
+        put(ws, r, 2, lab, "sub" if k_ == "inv" else "lab")
+        for i in range(16):
+            put(ws, r, 3 + i, f"={X}{CL(3 + i)}{P[k_]}", "key" if k_ == "inv" else "calc", nf)
+        r += 1
+REF["cmpm"] = (ws.title, "B12")
+
+# =============================================================== 09_후공정부하 (Case II 기준)
+wsL = wb.create_sheet("09_후공정부하")
 ws = wsL
-title(ws, "08_후공정부하 | 5 Gal · 200 L 충진 · OQC · 검사 (출하계획 기준)", "생산 버전과 무관하게 출하량으로 계산. ARS 시간 미입력 시 수동 8 h 적용.")
+title(ws, "09_후공정부하 | 5 Gal · 200 L 충진 · OQC · 검사 (Case II 판매 기준)", "Case II = 추가 물량 포함 (판매 최대). 추가 물량은 200 L (150 kg/용기) 기준. ARS 시간 미입력 시 수동 8 h.")
 widths(ws, {"B": 30, **{CL(i): 9.5 for i in range(3, 16)}})
 LOAD = {}
-r = 4
-load_rows = (("g5kg", "5 Gal 출하 (하이닉스+CXMT) kg", "=N({hx})+N({cx})", "kg"),
+X2 = q(CWS["II"]); P2 = CROW["II"]
+load_rows = (("g5kg", "5 Gal 판매 (SKH + CXMT) kg", "=N({hx})+N({cx})", "kg"),
              ("g5bt", "5 Gal 병", "={g5kg}/KG_BOT", "b"),
              ("g5h", "5 Gal 충진 h", "={g5bt}*FILL_5G", "h"),
              ("g5oqc", "5 Gal OQC h", "={g5bt}/BOT_B*OQC_5G", "h"),
@@ -472,139 +516,33 @@ load_rows = (("g5kg", "5 Gal 출하 (하이닉스+CXMT) kg", "=N({hx})+N({cx})",
              ("ezc", "이지켐 용기", "=N({ez})/KG_EZ", "b"),
              ("ezm", "이지켐 충진 방식", '=IF({ezc}=0,"-",IF({d}>=ARS_EZ_S,"ARS","수동"))', None),
              ("ezh", "이지켐 충진 h", '={ezc}*IF(AND({ezm}="ARS",ISNUMBER(ARS_EZ_T)),ARS_EZ_T,FILL_EZ)', "h"),
-             ("hsc", "한솔 용기", "=N({hs})/KG_HS", "b"),
-             ("hsm", "한솔 충진 방식", '=IF({hsc}=0,"-",IF({d}>=ARS_HS_S,"ARS","수동"))', None),
-             ("hsh", "한솔 충진 h", '={hsc}*IF(AND({hsm}="ARS",ISNUMBER(ARS_HS_T)),ARS_HS_T,FILL_HS)', "h"),
+             ("hsc", "추가 물량 용기 (150 kg)", "=N({hs})/KG_HS", "b"),
+             ("hsm", "추가 물량 충진 방식", '=IF({hsc}=0,"-",IF({d}>=ARS_HS_S,"ARS","수동"))', None),
+             ("hsh", "추가 물량 충진 h", '={hsc}*IF(AND({hsm}="ARS",ISNUMBER(ARS_HS_T)),ARS_HS_T,FILL_HS)', "h"),
              ("l2h", "200 L 충진 h 합계", "={ezh}+{hsh}", "h"),
              ("l2oqc", "200 L OQC h", "=({ezc}+{hsc})*OQC_200", "h"),
-             ("nb", "필요 Batch (출하 ÷ 190)", "=(N({hx})+N({cx})+N({ez})+N({hs}))/KG_B", "b"),
+             ("nb", "필요 Batch (판매 ÷ kg/Batch)", "=(N({hx})+N({cx})+N({ez})+N({hs}))/KG_B", "b"),
              ("qch", "PQC~이송·FQC h (필요 Batch 기준)", "={nb}*(T_PQC+T_FQC)", "h"))
-for yr in YEARS:
-    month_hdr(ws, r, yr, label=f"{yr}", total="연간"); hr = r; r += 1
-    pos = {}
-    for key, lab, fx, nf in load_rows:
-        pos[key] = r; r += 1
-    for key, lab, fx, nf in load_rows:
-        rr = pos[key]
-        put(ws, rr, 2, lab, "lab")
-        for m in MONTHS:
-            col = CL(2 + m)
-            sub = {k2: f"{col}{v}" for k2, v in pos.items()}
-            sub.update({c: ship(yr, c, m) for c, _ in CUST}); sub["d"] = f"{col}${hr}"
-            put(ws, rr, 2 + m, fx.format(**sub), "key" if key in ("g5h", "l2h") else "calc", nf)
-        tot = {"ezm": "-", "hsm": "-", "gbld": f"=MAX(C{rr}:N{rr})", "gbav": f"=C{rr}"}.get(key, f"=SUM(C{rr}:N{rr})")
-        put(ws, rr, 15, tot, "key", nf)
-    ws.conditional_formatting.add(f"C{pos['gbld']}:N{pos['gbld']}", CellIsRule(operator="greaterThan", formula=["1"], font=Font(color=RED, bold=True)))
-    LOAD[yr] = pos; r += 1
-put(ws, r, 2, "연간 열의 부하율은 월 최대", "note")
-Lq = q(wsL)
-
-# =============================================================== 05 · 06 월별 (두 버전)
-MROW = {}
-
-
-def month_sheet(ws, ver):
-    title(ws, ("05_월별_Capa기준 | 2027 47.2톤 · 2028 50.2톤 기준 생산 vs 출하" if ver == "A"
-               else "06_월별_생산계획 | 기존 생산계획 기준 생산 vs 출하"),
-          "PPT 연도별 표. 생산 = " + ("1~4월 확정 + 월 Capa. (연간 ÷ 11)" if ver == "A" else "01_입력 G 기존 생산계획") + " · 출하·충진은 01_입력 · 08_후공정부하 연결.")
-    widths(ws, {"B": 30, **{CL(i): 9.5 for i in range(3, 16)}})
-    rr = 4
-    pos_all = {}
-    for yr in (2027, 2028):
-        month_hdr(ws, rr, yr, label=f"{yr}"); hr = rr; rr += 1
-        keys = ("cond", "plan", "pb", "diff", "inv", "hx", "cx", "ez", "hs", "ship", "nb", "l2m", "g5h", "l2h", "ezc", "hsc")
-        pos = {k: rr + i for i, k in enumerate(keys)}
-        labels = {"cond": "운전 조건", "plan": "생산 (kg)", "pb": "Batch 환산 (÷190)", "hx": "SK하이닉스", "cx": "CXMT", "ez": "이지켐",
-                  "hs": "한솔", "ship": "출하 합계", "diff": "생산 − 출하", "inv": "재고 (전월 재고 + 생산 − 출하)", "nb": "필요 Batch (출하÷190)",
-                  "l2m": "200 L 충진 방식 (이지켐/한솔)",
-                  "g5h": "5 Gal 충진 h", "l2h": "200 L 충진 h", "ezc": "이지켐 용기", "hsc": "한솔 용기",
-                  }
-        for k in keys:
-            put(ws, pos[k], 2, labels[k], "sub" if k in ("plan", "ship", "inv") else "lab")
-        for m in MONTHS:
-            c = CL(2 + m); d = f"{c}${hr}"
-            if ver == "A":
-                cond = (f'=IF(MONTH({d})=MAINT_M,"대정비",IF({d}<RF_START,"정제기 1대",IF({d}>=T_105,"2대·105℃","정제기 2대")))')
-                plan = (f"={plan_b(yr, m)}" if (yr == 2027 and m <= 4) else
-                        f"=IF(MONTH({d})=MAINT_M,MAINT_KG,IF({d}>=T_105,CAPA_M105,IF({d}>=RF_START,CAPA_M,CAPA_NOW*1000/12)))")
-            else:
-                cond = f'=IF(MONTH({d})=MAINT_M,"대정비",IF({d}<RF_START,"정제기 1대","정제기 2대"))'
-                plan = f"={plan_b(yr, m)}"
-            previ = (f"{CL(1 + m)}{pos['inv']}" if m > 1 else (f"N{pos_all[2027]['inv']}" if yr == 2028 else None))
-            vals = {"cond": cond, "plan": plan, "pb": f"={c}{pos['plan']}/KG_B",
-                    "ship": f"=SUM({c}{pos['hx']}:{c}{pos['hs']})", "diff": f"={c}{pos['plan']}-{c}{pos['ship']}",
-                    "nb": f"={c}{pos['ship']}/KG_B",
-                    "inv": f"={previ if previ else 'N(INV_0)'}+{c}{pos['plan']}*IF(ISNUMBER(YIELD_Q),YIELD_Q,1)-{c}{pos['ship']}",
-                    "l2m": f'={Lq}{c}{LOAD[yr]["ezm"]}&"/"&{Lq}{c}{LOAD[yr]["hsm"]}'}
-            for k_, cu in (("hx", "hx"), ("cx", "cx"), ("ez", "ez"), ("hs", "hs")):
-                vals[k_] = f"={ship(yr, cu, m)}"
-            for k_ in ("g5h", "l2h", "ezc", "hsc"):
-                vals[k_] = f"={Lq}{c}{LOAD[yr][k_]}"
-            for k_, v in vals.items():
-                nf = {"plan": "kg1", "pb": "b", "hx": "kg1", "ship": "kg1", "diff": "sg", "inv": "sg", "nb": "b", "g5h": "h", "l2h": "h",
-                      "ezc": "b", "hsc": "b"}.get(k_, "kg")
-                if k_ in ("cond", "l2m"):
-                    nf = None
-                put(ws, pos[k_], 2 + m, v, "key" if k_ in ("plan", "inv") else "calc", nf)
-        for k in keys:
-            nf = {"pb": "b", "nb": "b", "g5h": "h", "l2h": "h", "ezc": "b", "hsc": "b", "diff": "sg", "inv": "sg"}.get(k, "kg")
-            tot = {"cond": "", "l2m": "-", "inv": f"=N{pos['inv']}"}.get(k, f"=SUM(C{pos[k]}:N{pos[k]})")
-            put(ws, pos[k], 15, tot, "key", nf)
-        ws.conditional_formatting.add(f"C{pos['cond']}:N{pos['cond']}", FormulaRule(formula=[f'C{pos["cond"]}="대정비"'], fill=fill(F_SUB), font=Font(color=RED, bold=True)))
-        ws.conditional_formatting.add(f"C{pos['plan']}:N{pos['plan']}", FormulaRule(formula=[f'C{pos["cond"]}="대정비"'], fill=fill(F_SUB)))
-        if yr == 2027:
-            for m in range(1, 5):
-                ws.cell(row=pos["plan"], column=2 + m).fill = fill(F_IN)
-        pos["hdr"] = hr
-        pos_all[yr] = pos
-        rr = pos["hsc"] + 2
-    put(ws, rr, 2, ("2027년 1~4월은 확정 생산 (01_입력 G), 5월부터 47,200 ÷ 11 · 2028년 50,200 ÷ 11 · 4월 대정비 1,188 kg · 재고는 기초재고 2,882 kg부터" if ver == "A"
-                    else "01_입력 G 기존 생산계획 · 2027년 1~4월 확정 · 2028년 생산계획 38,412 kg"), "note")
-    return pos_all
-
-
-MROW["A"] = month_sheet(wsA, "A")
-MROW["B"] = month_sheet(wsB, "B")
-
-# =============================================================== 07_버전비교
-ws = wsV
-title(ws, "07_버전비교 | Capa. 기준 vs 기존 생산계획 (2027~2028)", "재고 = 기초재고 (2027-01-01) + 생산 − 출하 · 2028년은 2027년 말 재고에서 이어짐.")
-widths(ws, {"B": 30, **{CL(i): 10 for i in range(3, 27)}})
-section(ws, 4, "① 연간 비교 (kg)")
-hdrs = ("버전", "2027 생산", "2027 출하", "2027 차이", "2028 생산", "2028 출하", "2028 차이", "'27 말 재고", "'28 말 재고", "최저 재고", "최저 시점")
-for j, lab in enumerate(hdrs):
-    put(ws, 5, 2 + j, lab, "hdr", align="left" if j == 0 else None)
-for i, (ver, lab, wsx) in enumerate((("A", "① Capa. 기준 (47.2 / 50.2톤)", wsA), ("B", "② 기존 생산계획", wsB))):
-    rr = 6 + i; P = MROW[ver]; X = q(wsx)
-    c27, c28 = P[2027]["inv"], P[2028]["inv"]
-    rng27, rng28 = f"{X}$C${c27}:$N${c27}", f"{X}$C${c28}:$N${c28}"
-    h27, h28 = f"{X}$C${P[2027]['hdr']}:$N${P[2027]['hdr']}", f"{X}$C${P[2028]['hdr']}:$N${P[2028]['hdr']}"
-    vals = [lab, f"={X}O{P[2027]['plan']}", f"={X}O{P[2027]['ship']}", f"=C{rr}-D{rr}", f"={X}O{P[2028]['plan']}", f"={X}O{P[2028]['ship']}",
-            f"=F{rr}-G{rr}", f"={X}N{c27}", f"={X}N{c28}", f"=MIN({rng27},{rng28})",
-            f"=IF(MIN({rng27})<=MIN({rng28}),INDEX({h27},MATCH(MIN({rng27}),{rng27},0)),INDEX({h28},MATCH(MIN({rng28}),{rng28},0)))"]
-    for j, v in enumerate(vals):
-        put(ws, rr, 2 + j, v, "lab" if j == 0 else ("key" if j in (3, 6, 7, 8, 9) else "calc"),
-            [None, "kg", "kg", "sg", "kg", "kg", "sg", "sg", "sg", "sg", "ym"][j])
-    REF[f"v{ver}"] = (ws.title, f"B{rr}")
-put(ws, 8, 2, "기초재고 (2027-01-01)", "lab"); put(ws, 8, 3, "=INV_0", "calc", "kg")
-section(ws, 10, "② 월별 생산 · 출하 · 재고 (kg)")
-put(ws, 11, 2, "월", "hdr", align="left")
-for k in range(24):
-    yr, m = 2027 + k // 12, k % 12 + 1
-    put(ws, 11, 3 + k, dt.date(yr, m, 1), "hdr", "ym")
-series = (("출하", "A", "ship"), ("① 생산 (Capa. 기준)", "A", "plan"), ("① 재고", "A", "inv"),
-          ("② 생산 (기존 생산계획)", "B", "plan"), ("② 재고", "B", "inv"))
-for i, (lab, ver, key) in enumerate(series):
-    rr = 12 + i; wsx = wsA if ver == "A" else wsB
-    put(ws, rr, 2, lab, "sub" if key == "inv" else "lab")
-    for k in range(24):
-        yr, m = 2027 + k // 12, k % 12 + 1
-        put(ws, rr, 3 + k, f"={q(wsx)}{CL(2 + m)}{MROW[ver][yr][key]}", "key" if key == "inv" else "calc", "sg" if key == "inv" else "kg")
-REF["series"] = (ws.title, "B12")
+r = 4
+month_hdr(ws, r, 2027, label="2027 (Case II)", total="연간"); hr = r; r += 1
+pos = {key: r + i for i, (key, *_r) in enumerate(load_rows)}
+for key, lab, fx, nf in load_rows:
+    rr = pos[key]
+    put(ws, rr, 2, lab, "lab")
+    for m in MONTHS:
+        col = CL(2 + m); cc = CL(6 + m)
+        sub = {k2: f"{col}{v}" for k2, v in pos.items()}
+        sub.update({"hx": f"{X2}{cc}{P2['skh']}", "cx": f"{X2}{cc}{P2['cx']}", "ez": f"{X2}{cc}{P2['ez']}", "hs": f"{X2}{cc}{P2['add']}", "d": f"{col}${hr}"})
+        put(ws, rr, 2 + m, fx.format(**sub), "key" if key in ("g5h", "l2h") else "calc", nf)
+    tot = {"ezm": "-", "hsm": "-", "gbld": f"=MAX(C{rr}:N{rr})", "gbav": f"=C{rr}"}.get(key, f"=SUM(C{rr}:N{rr})")
+    put(ws, rr, 15, tot, "key", nf)
+ws.conditional_formatting.add(f"C{pos['gbld']}:N{pos['gbld']}", CellIsRule(operator="greaterThan", formula=["1"], font=Font(color=RED, bold=True)))
+LOAD[2027] = pos
+put(ws, r + len(load_rows) + 1, 2, "연간 열의 부하율은 월 최대", "note")
 
 # =============================================================== 09_확인사항
-ws = wb.create_sheet("09_확인사항")
-title(ws, "09_확인사항 | 생산팀 확인 내용 · 조건별 생산량 입력", "생산·품질·설비·충진 관련 내용만 정리.")
+ws = wb.create_sheet("10_확인사항")
+title(ws, "10_확인사항 | 생산팀 확인 내용 · 조건별 생산량 입력", "생산·품질·설비·충진 관련 내용만 정리.")
 widths(ws, {"B": 22, "C": 52, "D": 40, "E": 34})
 section(ws, 4, "① 생산팀 확인 내용")
 for j, lab in enumerate(("구분", "생산팀 설명", "자료 반영", "확인 필요")):
@@ -615,14 +553,17 @@ conv = (("공정시간", "57 h에서 IQC·준비·PQC~이송·FQC를 빼면 순�
         ("생산물 도착 간격", "57 ÷ 2 = 28.5 h는 이상적인 경우의 도착 간격 설명", "정제기별 Batch 시간으로 사용하지 않음", "-"),
         ("Capa. 2배 아님", "추가 투입용 Mix·Premix 준비 등에 설비 시간이 필요", "47.2톤 (현재 26.2톤의 2배 52.4톤 아님)", "Mix·Premix 준비시간 · 사용 설비"),
         ("리플럭스 목적", "하이닉스 요구 품질 대응을 위한 정제 기능 개선 · 환류 운전은 회수 속도와 Batch 시간에 영향", "품질 대응 + 생산능력 확대 · 온도 상승 효과와 2대 효과 구분", "환류 운전 시 Batch 시간"),
-        ("회수량", "조건별 약 160~170 kg / 추가 투입 시 약 220 kg / 전체 약 195~200 kg (197 kg) / Crude 200 kg × 75~80% ≈ 150~160 kg", "환산 기준 190 kg/Batch 유지 · 조건별 실측 입력란", "조건별 투입·회수·양품·잔량 실측"),
+        ("회수량", "조건별 약 160~170 kg / 추가 투입 시 약 220 kg / 전체 약 195~200 kg (197 kg) / Crude 200 kg × 75~80% ≈ 150~160 kg", "생산량은 협의 기준 198 kg/Batch · 조건별 실측 입력란", "조건별 투입·회수·양품·잔량 실측"),
         ("수율 표현", "\"65%에서 5% 올렸다\"", "65→70% 개선으로 단정하지 않음", "수치 정의"),
         ("135 · 120", "Mix 유무에 따라 언급", "kg 생산량으로 입력하지 않음", "단위 · 색도 등 품질 지표인지"),
         ("이지켐 색도", "색도 조건 때문에 추가 투입 제한", "고객별 품질 조건 별도", "고객별 품질·색도 규격 · 합격률"),
         ("5 Gal 충진", "9병 18 h 작업, 근무시간 반영 시 약 2일 · 개선 방향 1~1.5일 · 18 h → 9 h 방안 검토", "2 h/병 · 18 h 유지 (개선은 미반영)", "교대·연장근무 · 충진 인원"),
         ("ARS", "ARS 자체 충진은 더 길 수 있으나 용기 투입·반출·퍼지 포함 시 전체 시간은 비슷할 수 있음", "ARS 시간 미입력 시 수동 8 h 적용 · Capa. 가산 없음", "ARS 작업 단계별 시간 (용기 준비~설비 전환)"),
         ("한솔 충진", "200 L 수동 충진", "8 h/용기 반영", "ARS 전환 후 시간"),
-        ("출하 물량", "대화 중 '약 40톤' 언급", "고객별 출하계획 (2027 41.72 / 2028 45.76톤) 유지", "-"))
+        ("Batch 기준 (협의)", "Batch size 200 kg · Yield 99% → 198 kg/Batch · Batch time 55 h · 원단위 1.010", "생산 = 월 Batch × 198 kg (1대 12 · 2대 20 Batch)", "Batch time 55 h의 구성 (IQC 제외 57 h와 일치 여부)"),
+        ("Case (협의)", "Case I 계획 比 CXMT·이지켐 조정 / Case II 추가 물량 / Case III 추가 물량 + 4월 도입", "2026.9~2027.12 Case별 생산·판매·재고", "Case III 외부 상품 도입 물량 · 시점"),
+        ("재고일", "총판매량 · SKHY · SKHY+CXMT 기준 개월 수", "협의 자료 값 그대로 반영", "재고일 산식 (재고 ÷ 판매로는 재현 안 됨)"),
+        ("2026 판매", "10·12월 판매 합계가 고객별 합보다 140 kg 큼 · 26년 SKH 합계 9,960 / 17,210 (Case별 표기 다름)", "판매 합계 값 그대로 사용", "고객별 물량 · 연간 합계"))
 for i, row_ in enumerate(conv):
     rr = 6 + i
     for j, v in enumerate(row_):
@@ -645,8 +586,8 @@ for lab, oral in (("일부 운전 조건", "약 160~170 kg"), ("추가 투입 ·
 put(ws, r, 2, "수율은 총 투입(신규 + 재투입) 기준 · 신규 Crude만 분모로 쓰지 않음", "note")
 
 # =============================================================== 10_과거Batch_참고
-ws = wb.create_sheet("10_과거Batch_참고")
-title(ws, "10_과거Batch_참고 | 2026 생산계획 표시일자 (원자료 보존 · 참고용)", "표시일자 = 해당 Batch의 생산 및 충진 완료 예정일 (생산계획 · 실적 아님).")
+ws = wb.create_sheet("11_과거Batch_참고")
+title(ws, "11_과거Batch_참고 | 2026 생산계획 표시일자 (원자료 보존 · 참고용)", "표시일자 = 해당 Batch의 생산 및 충진 완료 예정일 (생산계획 · 실적 아님).")
 widths(ws, {"B": 8, "C": 12, "D": 8, "F": 10, "G": 12, "H": 12})
 L = [(37, 5, 23), (38, 5, 26), (39, 6, 2), (40, 6, 5), (41, 6, 8), (42, 6, 11), (43, 6, 14), (44, 6, 17), (45, 6, 20), (46, 6, 23),
      (47, 6, 25), (48, 6, 27), (49, 6, 28), (50, 7, 1), (51, 7, 3), (52, 7, 6), (53, 7, 8), (54, 7, 11), (55, 7, 14), (56, 7, 17),
@@ -669,19 +610,18 @@ for i, (m, tot) in enumerate(((5, None), (6, 8), (7, 11), (8, 8), (9, 8), (10, 1
 put(ws, 12, 6, "5월은 #37·#38 일부만 제공", "note")
 
 # =============================================================== 마무리
-order = ["01_입력", "02_공정시간", "03_Batch주기", "04_Capa기준", "05_월별_Capa기준", "06_월별_생산계획", "07_버전비교", "08_후공정부하",
-         "09_확인사항", "10_과거Batch_참고"]
+order = ["01_입력", "02_공정시간", "03_Batch주기", "04_Capa기준", "05_Case1", "06_Case2", "07_Case3", "08_Case비교", "09_후공정부하",
+         "10_확인사항", "11_과거Batch_참고"]
 wb._sheets = [wb[n] for n in order]
-tabs = {"01_입력": "2E75B6", "02_공정시간": "EB002C", "03_Batch주기": "EB002C", "04_Capa기준": "EB002C", "05_월별_Capa기준": "FF7900",
-        "06_월별_생산계획": "FF7900", "07_버전비교": "FF7900", "08_후공정부하": "70AD47", "09_확인사항": "7F7F7F", "10_과거Batch_참고": "BFBFBF"}
+tabs = {"01_입력": "2E75B6", "02_공정시간": "EB002C", "03_Batch주기": "EB002C", "04_Capa기준": "EB002C", "05_Case1": "FF7900",
+        "06_Case2": "FF7900", "07_Case3": "FF7900", "08_Case비교": "FF7900", "09_후공정부하": "70AD47", "10_확인사항": "7F7F7F", "11_과거Batch_참고": "BFBFBF"}
 for w in wb.worksheets:
     w.sheet_properties.tabColor = tabs[w.title]
     w.sheet_view.zoomScale = 90
-    if w.title[:2] in ("05", "06", "07", "08"):
+    if w.title[:2] in ("08", "09"):
         w.freeze_panes = "C4"
 wb.active = 0
 wb.save(OUT)
-json.dump({"REF": REF, "MROW": {v: {str(y): p for y, p in d.items()} for v, d in MROW.items()},
-           "LOAD": {str(y): p for y, p in LOAD.items()}, "PLAN": PLAN, "SHIP": {f"{k[0]}_{k[1]}": v for k, v in SHIP.items()}},
+json.dump({"REF": REF, "CROW": CROW, "LOAD": {str(y): p for y, p in LOAD.items()}},
           open(OUT + ".map.json", "w"), ensure_ascii=False)
 print("saved", OUT)

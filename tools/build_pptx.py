@@ -31,13 +31,8 @@ def V(k):
 VS = {"A": "05_월별_Capa기준", "B": "06_월별_생산계획"}
 
 
-def mrow(ver, yr, key):
-    ws = wb[VS[ver]]; r = MAP["MROW"][ver][str(yr)][key]
-    return [ws.cell(row=r, column=2 + m).value for m in range(1, 13)], ws.cell(row=r, column=15).value
-
-
 def lrow(yr, key):
-    ws = wb["08_후공정부하"]; r = MAP["LOAD"][str(yr)][key]
+    ws = wb["09_후공정부하"]; r = MAP["LOAD"][str(yr)][key]
     return [ws.cell(row=r, column=2 + m).value for m in range(1, 13)], ws.cell(row=r, column=15).value
 
 
@@ -263,12 +258,7 @@ def calendar(slide, x, y, colw, hdr_h, row_h, year, month, events):
     return tbl
 
 
-CHAN = {}
-for yr, m in ((2027, 1), (2027, 7)):
-    hx, cx, ez, hs = (mrow("A", yr, k)[0][m - 1] for k in ("hx", "cx", "ez", "hs"))
-    CHAN[(yr, m)] = (ez + hs) / (hx + cx + ez + hs)
-
-CM, CM105, MK, KGB = V("CAPA_M"), V("CAPA_M105"), V("MAINT_KG"), V("KG_B")
+KGB = V("KG_B")
 T57, TREF = V("T_57"), V("T_REF")
 
 # ============================================================ 1. As-is 공정 흐름 · 공정시간
@@ -330,7 +320,7 @@ notes(s1, f"""As-is는 정제기 1대로 하이닉스·CXMT·이지켐(한솔 '2
 PQC와 제품 이송은 합쳐서 6 h입니다. 57 h에는 충진·OQC가 포함되지 않습니다.
 5 Gal 9병은 2 h × 9 = 18 h 작업이며 현장에서는 근무시간 기준 약 2일로 설명합니다. 200 L은 이지켐·한솔 모두 수동 8 h/용기로 반영했습니다.
 경로별 합계 77 h · 67 h는 확인된 시간 항목을 더한 값으로, 달력 기준 납기나 다음 Batch 투입 간격과는 다릅니다. 충진이 진행되는 동안 다음 Batch 정제가 가능합니다.
-190 kg과 5 Gal 9병 180 kg의 차이 10 kg은 잔량·추가 충진·다른 고객 배분 여부를 확인할 항목입니다.""")
+Batch당 {KGB:.0f} kg과 5 Gal 9병 180 kg의 차이 {KGB - 180:.0f} kg은 잔량·추가 충진·다른 고객 배분 여부를 확인할 항목입니다.""")
 
 # ============================================================ 2. As-is 10월 생산계획 · Batch 완료 주기
 cy = wb["03_Batch주기"]
@@ -360,10 +350,12 @@ sec(sP, 4.85, "④ 월 생산량 비교 — 정제기 1대")
 c0 = int(REF["cmp0"][1][1:])
 CMP = [[cy.cell(row=c0 + i, column=c).value for c in range(2, 10)] for i in range(6)]   # 기준, 대, Batch, kg, 연간, 주기, 순수, 대기
 rows = [["기준", "Batch/월", "kg/월", "연간 (t)", "완료 간격 (h)", "산출 근거"]]
-for i, basis in ((0, "720 h ÷ 45 h (점유·전환·대기 제외)"), (1, f"{(PLN[-1][1] - PLN[0][1]).days}일 × 24 h ÷ {len(PLN) - 1} Batch"), (2, "26,200 kg ÷ 12")):
+for i, basis in ((0, "720 h ÷ 45 h (점유·전환·대기 제외)"), (1, f"{(PLN[-1][1] - PLN[0][1]).days}일 × 24 h ÷ {len(PLN) - 1} Batch"),
+                 (2, f"협의 계획 12 Batch × {KGB:.0f} kg"), (4, "26,200 kg ÷ 12")):
     c_ = CMP[i]
-    rows.append([c_[0], f"{c_[2]:.1f}" if i == 2 else f"{c_[2]:.0f}", f0(c_[3]), f"{c_[4]:.1f}", f"{c_[5]:.1f}", basis])
-mk_table(sP, 0.31, 5.13, [2.3, 1.0, 1.1, 1.0, 1.25, 2.72], rows, rh=0.4, fs=8.5, left_cols=(0, 5), bolds={(2, -1)}, fills={(2, -1): "FFF2E6"})
+    rows.append([c_[0], f"{c_[2]:.1f}" if i == 4 else f"{c_[2]:.0f}", f0(c_[3]), f"{c_[4]:.1f}", f"{c_[5]:.1f}", basis])
+mk_table(sP, 0.31, 5.13, [2.55, 0.9, 1.0, 0.95, 1.2, 2.77], rows, rh=0.33, fs=8.3, left_cols=(0, 5), bolds={(2, -1), (3, -1)},
+         fills={(2, -1): "FFF2E6", (3, -1): "EAF1FB"}, colors={(3, 4): REDC})
 notes(sP, f"""10월 생산계획의 표시일은 해당 Batch의 생산과 충진이 모두 끝나는 완료 예정일이며, Batch 번호는 각각 독립된 생산 Batch입니다.
 10월에는 {PLN[1][0]}~{PLN[-1][0]} {PLB:.0f} Batch가 완료되어 {f0(PLKG)} kg입니다. 9월 마지막 {PLN[0][0]}(9/28)부터 {PLN[-1][0]}(10/29)까지 {(PLN[-1][1] - PLN[0][1]).days}일 동안 {len(PLN) - 1}번 완료되어 평균 간격은 {CYC / 24:.2f}일 = {CYC:.1f} h입니다(3일 간격 {D3:.0f}회, 2일 간격 {D2:.0f}회).
 정제기는 Batch마다 준비·투입 2 h + 순수 정제 {TREF:.0f} h = {V('T_PREP') + TREF:.0f} h를 순수하게 사용하고, 나머지 {WAIT:.1f} h는 제품 이송 중 점유·세척·전환·투입 대기 등입니다.
@@ -430,43 +422,58 @@ for sh in list(s2.shapes):
     if sh.name == "TextBox 163":
         delete(sh)
 header(s2, 4, "To-be | 정제기 2대 운영과 투자 일정", "정제기 2대의 투입 시점을 엇갈리게 운영하여 생산을 병행하고, 후공정 부하를 분산하는 계획")
-sec(s2, 3.76, "① 투자 · 운영 일정", "매년 4월 대정비 · '27.5 정제기 2대 생산 시작")
-yrs = ["구분", "2027년"] + [""] * 11 + ["2028년"] + [""] * 5
-mons = [""] + [str(m) for m in range(1, 13)] + [str(m) for m in range(1, 7)]
-r_cur = ["정제기 1대 (확정)", "2,178 · 2,178 · 3,168", "", ""] + [""] * 15
-r_mt = ["대정비 (매년 4월)"] + [""] * 3 + [f"{f0(MK)}"] + [""] * 11 + [f"{f0(MK)}"] + ["", ""]
-r_rf = ["정제기 2대 생산", "", "", "", "", f"월 {f1(CM)} kg (47,200 ÷ 11) · 기존 생산계획 3,564 kg"] + [""] * 7 + [f"월 {f1(CM105)} kg", "", "", "", f"{f1(CM105)}", ""]
-r_ars = ["200 L 충진", "수동 8 h/용기"] + [""] * 5 + ["ARS '27.7~ (이지켐 · 한솔) · 5 Gal은 글로브 박스 유지"] + [""] * 11
-r_105 = ["105℃ (2028)"] + [""] * 12 + ["103 → 105℃ · +3톤 (50.2톤)"] + [""] * 5
-rows = [yrs, mons, r_cur, r_mt, r_rf, r_ars, r_105]
+sec(s2, 3.76, "① Case별 리플럭스 도입 · 월 Batch 계획", f"1대 월 {V('MB_ONE'):.0f} Batch · 2대 월 {V('MB_TWO'):.0f} Batch · {KGB:.0f} kg/Batch")
+M16 = [(2026, m) for m in (9, 10, 11, 12)] + [(2027, m) for m in range(1, 13)]
+yrs = ["구분", "2026년", "", "", "", "2027년"] + [""] * 11
+mons = [""] + [f"{m}월" for _, m in M16]
+c1 = wb["05_Case1"]; c3 = wb["07_Case3"]; P1 = MAP["CROW"]["I"]; P3 = MAP["CROW"]["III"]
+bI = [c1.cell(row=P1["batch"], column=3 + i).value for i in range(16)]
+bIII = [c3.cell(row=P3["batch"], column=3 + i).value for i in range(16)]
+def bcell(v, i, intro):
+    if i == 0:
+        return "-"
+    return f"{v} 도입" if i == intro else (f"{v} 운전" if i == intro + 1 else str(v))
+r_a = ["Case I · II  Batch"] + [bcell(v, i, 4) for i, v in enumerate(bI)]
+r_b = ["Case III  Batch"] + [bcell(v, i, 7) for i, v in enumerate(bIII)]
+r_ars = ["200 L 충진"] + ["수동 8 h/용기"] + [""] * 9 + ["ARS '27.7~ (이지켐 · 추가)"] + [""] * 5
+r_ars = r_ars[:17]
+rows = [yrs, mons, r_a, r_b, r_ars]
 fl = {(0, -1): "595959", (1, -1): "F2F2F2"}
-fl.update({(2, j): "FDE9E7" for j in (1,)}); fl.update({(3, 4): "D9D9D9", (3, 16): "D9D9D9"})
-fl.update({(4, 5): "FDE9E7", (4, 13): "FDE9E7", (4, 17): "FDE9E7", (5, 7): "E4DFEC", (6, 13): "E4DFEC"})
-cl = {(1, j): DARK for j in range(19)}
-cl.update({(2, 1): REDC, (3, 4): REDC, (3, 16): REDC, (4, 5): REDC, (4, 13): REDC, (4, 17): REDC, (5, 1): GRAYT, (5, 7): PUR, (6, 13): PUR})
-mk_table(s2, 0.31, 4.02, [1.6] + [0.43] * 18, rows, rh=0.235, fs=7.3,
-         merges=[(0, 1, 12), (0, 13, 18), (2, 1, 3), (4, 5, 12), (4, 13, 15), (4, 17, 18), (5, 1, 6), (5, 7, 18), (6, 13, 18)],
-         fills=fl, colors=cl, bolds={(2, 1), (3, 4), (3, 16), (4, 5), (4, 13), (4, 17), (1, -1)}, hdr_rows=1)
-sec(s2, 5.78, "② 월 생산 기준 — 4월 대정비 1,188 kg · 나머지 11개월에 연간 Capa. ÷ 11")
-rows = [["구분", "연간 Capa.", "4월 (대정비)", "나머지 11개월", "산식"],
-        ["현재 정제기 1대", f"{V('CAPA_NOW'):.1f}톤", "-", f"{f0(V('CAPA_NOW') * 1000 / 12)} kg", "26,200 ÷ 12"],
-        ["정제기 2대 ('27.5~)", f"{V('CAPA_RF'):.1f}톤", f"{f0(MK)} kg", f"{f1(CM)} kg", "47,200 ÷ 11"],
-        ["2028 105℃ 적용", f"{V('CAPA_105'):.1f}톤", f"{f0(MK)} kg", f"{f1(CM105)} kg", "50,200 ÷ 11"]]
-mk_table(s2, 0.31, 6.04, [2.6, 1.3, 1.5, 1.7, 2.27], rows, rh=0.205, fs=8, bolds={(2, -1), (3, -1)},
-         colors={(2, 3): REDC, (3, 3): REDC})
-notes(s2, f"""리플럭스 이후에는 정제기 2대를 활용합니다. 정제기 1을 먼저 투입·운전하고, 초류 진행에 맞춰 정제기 2를 투입해 두 설비의 운전 구간을 겹칩니다(현장 설명: 다음 날 투입·초류 중간·초류 종료 무렵 — 투입 간격은 미확정).
-정제기별 Batch 시간이 절반으로 줄어드는 것이 아니라 두 설비의 생산을 겹쳐 전체 생산량을 늘리는 방식이며, 제품 회수 시점이 엇갈려 검사·충진 부하가 한꺼번에 몰리지 않습니다. 57 ÷ 2 = 28.5 h는 이상적인 경우의 도착 간격 설명일 뿐 정제기별 Batch 시간이 아닙니다.
-일정: '27.1~3 정제기 1대 확정 생산(2,178 · 2,178 · 3,168 kg) → '27.4 대정비({f0(MK)} kg) → '27.5부터 정제기 2대. 대정비는 매년 4월로 반영했습니다. 200 L ARS는 '27.7부터(이지켐·한솔), 5 Gal은 글로브 박스를 유지합니다.
-Capa.: 26.2 + 21 = 47.2톤/년. 월 기준은 47,200 ÷ 11 = {f1(CM)} kg이고 대정비 월(4월)은 {f0(MK)} kg을 따로 둡니다. 2028년은 105℃ 적용(+3톤)으로 50.2톤, 50,200 ÷ 11 = 월 {f1(CM105)} kg — 열 안정성·Dimer·Unknown impurity·수율 검증과 승인이 전제입니다.
-47.2톤이 현재의 2배(52.4톤)가 아닌 것은 추가 투입용 Mix·Premix 준비 등에 설비 시간이 필요하기 때문이며, 각 요인의 손실량은 아직 정량화되지 않았습니다.
-리플럭스는 하이닉스 요구 품질 대응과 생산능력 확대를 함께 보는 프로젝트입니다. 추가 정제기가 기존 설비 개조인지 신규 설치인지, 설비 번호(2070·2060 등)는 도면과 대조해 확인합니다.""")
+for ri, arr, intro in ((2, bI, 4), (3, bIII, 7)):
+    for i, v in enumerate(arr):
+        j = i + 1
+        if i == 0:
+            fl[(ri, j)] = "FFFFFF"
+        elif v == 6:
+            fl[(ri, j)] = "D9D9D9"
+        elif i > intro:
+            fl[(ri, j)] = "FDE9E7"
+        else:
+            fl[(ri, j)] = "F2F2F2"
+fl.update({(4, 11): "E4DFEC"})
+cl = {(1, j): DARK for j in range(17)}
+cl.update({(2, 5): REDC, (2, 6): REDC, (3, 8): REDC, (3, 9): REDC, (4, 1): GRAYT, (4, 11): PUR})
+mk_table(s2, 0.31, 4.02, [1.45] + [0.495] * 16, rows, rh=0.27, fs=7.5,
+         merges=[(0, 1, 4), (0, 5, 16), (4, 1, 10), (4, 11, 16)],
+         fills=fl, colors=cl, bolds={(2, -1), (3, -1), (1, -1)}, hdr_rows=1)
+sec(s2, 5.5, "② 생산능력 기준 (월 Batch × 198 kg)")
+rows = [["구분", "월 Batch", "kg/월", "연간 환산", "비고"],
+        ["정제기 1대 (현재)", f"{V('MB_ONE'):.0f}", f0(V("MB_ONE") * KGB), f"{V('MB_ONE') * KGB * 12 / 1000:.1f}톤", "현재 Capa. 26.2톤 수준"],
+        ["정제기 2대 (리플럭스 후)", f"{V('MB_TWO'):.0f}", f0(V("MB_TWO") * KGB), f"{V('CAPA_TWO'):.1f}톤", "리플럭스 47.2톤 계획 수준"],
+        ["대정비 월 ('27.4)", f"{V('MB_MAINT'):.0f}", f0(V("MB_MAINT") * KGB), "-", "Case I·II · III 공통"]]
+mk_table(s2, 0.31, 5.78, [2.6, 1.0, 1.2, 1.3, 3.27], rows, rh=0.27, fs=8.3, left_cols=(0, 4), bolds={(2, -1)}, fills={(2, -1): "FFF2E6"})
+notes(s2, f"""리플럭스 이후에는 정제기 2대를 활용합니다. 정제기 1을 먼저 투입·운전하고, 초류 진행에 맞춰 정제기 2를 투입해 두 설비의 운전 구간을 겹칩니다(투입 간격은 미확정). 정제기별 Batch 시간이 절반으로 줄어드는 것이 아니라 두 설비의 생산을 겹쳐 전체 생산량을 늘립니다.
+생산팀 협의 기준: Batch size 200 kg × Yield 99% = {KGB:.0f} kg/Batch, Batch time 55 h, 원단위 1.010. 정제기 1대 월 {V('MB_ONE'):.0f} Batch({f0(V('MB_ONE') * KGB)} kg), 2대 월 {V('MB_TWO'):.0f} Batch({f0(V('MB_TWO') * KGB)} kg), 4월 대정비 {V('MB_MAINT'):.0f} Batch({f0(V('MB_MAINT') * KGB)} kg).
+Case I·II: '27.1 리플럭스 도입 운영, '27.2 운전(16 Batch), 3월부터 20 Batch. Case III: '27.4 도입, '27.5부터 20 Batch — 1~3월은 1대 12 Batch로 유지합니다.
+정제기 2대 월 20 Batch는 연 {V('CAPA_TWO'):.1f}톤 수준으로 리플럭스 47.2톤 계획과 맞습니다. 47.2톤이 현재의 2배(52.4톤)가 아닌 것은 Mix·Premix 준비 등 설비 시간이 필요하기 때문입니다.
+200 L은 '27.7부터 ARS(이지켐·추가 물량), 5 Gal은 글로브 박스를 유지합니다. 추가 정제기의 개조/신규 여부와 설비 번호(2070·2060 등)는 도면과 대조해 확인합니다.""")
 
 # ============================================================ 5. To-be 운영 마일스톤
 sB = new_slide()
 IRF, WRF, OFF = V("INT_RF"), V("WAIT_RF"), V("OFFSET_H")
 tb, tbm = V("tobe_b"), V("tobe_bm")
 header(sB, 5, "To-be | 정제기 2대 시차 운전 — 운영 마일스톤",
-       f"47.2톤 주기 {IRF:.1f} h = 순수 47 h + 대기 {WRF:.1f} h (현재 대기 {WAIT - WRF:.1f} h 단축)")
+       f"정제기 2대 월 {tbm:.0f} Batch = {f0(tbm * KGB)} kg · 설비별 주기 {IRF:.0f} h = 순수 47 h + 대기 {WRF:.0f} h")
 tb0 = int(REF["tb0"][1][1:])
 comp = []
 for i in range(16):
@@ -487,130 +494,141 @@ calendar(sB, 0.31, 1.33, 0.84, 0.26, 0.6, tm.year, tm.month, ev)
 n1 = sum(1 for c in comp if c[1] == 0); n2 = len(comp) - n1
 sec(sB, 1.05, "② 운영 결과", x=6.42, w=3.2)
 rows = [["구분", f"{tm.month}월"], ["정제기 ① 완료", f"{n1} Batch"], ["정제기 ② 완료", f"{n2} Batch"], [f"{tm.month}월 합계", f"{tb:.0f} Batch"],
-        ["생산량", f"{f0(tb * KGB)} kg"], ["월평균 (730 h)", f"{tbm:.1f} Batch"], ["월 Capa. (47.2톤)", f"{f0(CM)} kg"]]
+        ["생산량", f"{f0(tb * KGB)} kg"], ["협의 계획 (월)", f"{tbm:.0f} Batch"], ["협의 계획 kg", f"{f0(tbm * KGB)} kg"]]
 mk_table(sB, 6.42, 1.33, [1.75, 1.52], rows, rh=0.355, fs=8.2, bolds={(3, -1), (4, -1)}, fills={(3, -1): "FFF2E6", (4, -1): "FFF2E6"})
 sec(sB, 4.85, "③ 월 생산량 비교 — 설비별 주기 = 순수 47 h + 대기")
 rows = [["기준", "정제기", "Batch/월", "kg/월", "설비별 주기 (h)", "순수 (h)", "대기 (h)"]]
-for i in (1, 3, 4, 5):
+for i in (1, 2, 3):
     c_ = CMP[i]
-    rows.append([c_[0], f"{c_[1]:.0f}대", f"{c_[2]:.1f}", f0(c_[3]), f"{c_[5]:.1f}", f"{c_[6]:.0f}", f"{c_[7]:.1f}"])
-mk_table(sB, 0.31, 5.13, [2.4, 0.8, 1.0, 1.1, 1.35, 1.0, 1.72], rows, rh=0.33, fs=8.5, bolds={(3, -1)},
-         fills={(3, -1): "FFF2E6"}, colors={(i, 6): REDC for i in range(1, 5)})
-notes(sB, f"""정제기 2대 운영 예시입니다. 47.2톤 기준 월 Capa. {f1(CM)} kg ÷ 190 = 월 {tbm:.1f} Batch를 평균 월 730 h에 2대로 나누면 설비별 주기는 {IRF:.1f} h입니다. 정제기 2는 정제기 1보다 {OFF:.0f} h 늦게 투입하는 것으로 가정했습니다(실제 시차는 초류 진행을 보고 결정).
+    rows.append([c_[0], f"{c_[1]:.0f}대", f"{c_[2]:.0f}", f0(c_[3]), f"{c_[5]:.1f}", f"{c_[6]:.0f}", f"{c_[7]:.1f}"])
+mk_table(sB, 0.31, 5.13, [2.6, 0.8, 0.95, 1.05, 1.35, 0.95, 1.67], rows, rh=0.36, fs=8.5, bolds={(3, -1)},
+         fills={(3, -1): "FFF2E6"}, colors={(2, 6): REDC, (1, 6): REDC, (3, 6): "385723"})
+notes(sB, f"""정제기 2대 운영 예시입니다. 협의 계획 월 {tbm:.0f} Batch를 평균 월 730 h에 2대로 나누면 설비별 주기는 {IRF:.1f} h입니다. 정제기 2는 정제기 1보다 {OFF:.0f} h 늦게 투입하는 것으로 가정했습니다(실제 시차는 초류 진행을 보고 결정).
 달력의 완료일은 투입 후 5 Gal 기준 실제 소요(순수 77 h + 대기 {WAIT:.1f} h = {V('LT_5G'):.1f} h)가 지난 날짜입니다. {tm.year}년 {tm.month}월에는 정제기 ① {n1} Batch, ② {n2} Batch, 합계 {tb:.0f} Batch = {f0(tb * KGB)} kg이 완료됩니다.
-설비별 주기 {IRF:.1f} h는 순수 47 h + 대기 {WRF:.1f} h입니다. 10월 생산계획의 대기 {WAIT:.1f} h를 그대로 두면 47.2톤에 못 미치므로, 세척·전환·투입 대기를 줄이고 Mix·Premix 준비를 정제기 운전과 겹치는 운영이 필요합니다.
-기존 생산계획(5~12월 3,564 kg)은 설비별 주기 {CMP[3][5]:.1f} h(대기 {CMP[3][7]:.1f} h)에 해당해 현재보다 여유가 있고, 2028년 50.2톤은 대기 {CMP[5][7]:.1f} h까지 줄여야 합니다.""")
+설비별 주기 {IRF:.1f} h = 순수 47 h + 대기 {WRF:.1f} h로, 10월 생산계획의 대기 {WAIT:.1f} h보다 여유가 있어 2대 월 20 Batch는 현재 운영 수준으로 달성 가능합니다.
+반대로 정제기 1대 월 12 Batch(2026.10~12, Case III는 2027.1~3까지)는 주기 {CMP[2][5]:.1f} h, 대기 {CMP[2][7]:.1f} h가 필요해 현재 10월 계획(11 Batch · 대기 {WAIT:.1f} h)보다 대기를 {WAIT - CMP[2][7]:.1f} h 줄여야 합니다.""")
 
-# ============================================================ 5. 버전 비교
+# ============================================================ 6. Case 비교
 sV = new_slide()
-vw = wb["07_버전비교"]
-va = [vw.cell(row=6, column=c).value for c in range(2, 13)]
-vb = [vw.cell(row=7, column=c).value for c in range(2, 13)]
-INV0 = V("INV_0")
-header(sV, 6, "2027~2028 생산 계획 버전 비교",
-       f"'28 말 재고 — ① Capa. 기준 {sg(va[8])} kg · ② 기존 생산계획 {sg(vb[8])} kg")
-sec(sV, 1.05, "① 연간 생산 · 출하 · 재고 (kg)", f"재고 = 전월 재고 + 생산 − 출하 · 2027.1.1 기초재고 {f0(INV0)} kg")
-rows = [["버전", "2027 생산", "2027 출하", "차이", "2028 생산", "2028 출하", "차이", "'27 말 재고", "'28 말 재고", "최저 재고 (시점)"]]
-for v_, lab in ((va, "① Capa. 기준 (47.2 / 50.2톤)"), (vb, "② 기존 생산계획")):
-    rows.append([lab, f0(v_[1]), f0(v_[2]), sg(v_[3]), f0(v_[4]), f0(v_[5]), sg(v_[6]), sg(v_[7]), sg(v_[8]), f"{sg(v_[9])} ('{v_[10]:%y.%-m})"])
-cl = {(i, j): "385723" for i in (1, 2) for j in (3, 6, 7, 8, 9) if rows[i][j].startswith("+")}
-mk_table(sV, 0.31, 1.33, [2.2, 0.78, 0.78, 0.72, 0.78, 0.78, 0.72, 0.8, 0.8, 1.01], rows, rh=0.34, fs=8,
-         bolds={(i, j) for i in (1, 2) for j in (3, 6, 7, 8, 9)}, colors=cl)
-ser = [[vw.cell(row=12 + i, column=3 + k).value for k in range(24)] for i in range(5)]
-labs = ("출하", "① 생산", "① 재고", "② 생산", "② 재고")
-for bi, (yr, y0) in enumerate(((2027, 2.5), (2028, 4.66))):
-    sec(sV, y0, f"{'②③'[bi]} {yr} 월별 생산 · 재고 (kg)")
-    rows = [["구분"] + [f"{m}월" for m in range(1, 13)] + ["연간"]]
-    for i, lab in enumerate(labs):
-        vals = ser[i][bi * 12:(bi + 1) * 12]
-        if "재고" in lab:
-            rows.append([lab] + [sg(v) for v in vals] + [sg(vals[-1])])
-        else:
-            rows.append([lab] + [f0(v) if abs(v - round(v)) < 1e-6 else f1(v) for v in vals] + [f0(sum(vals))])
-    cl = {(i, j): "385723" for i in (3, 5) for j in range(1, 14) if rows[i][j].startswith("+")}
-    mk_table(sV, 0.31, y0 + 0.28, [1.1] + [0.62] * 12 + [0.83], rows, rh=0.29, fs=7.6, colors=cl,
-             bolds={(3, -1), (5, -1)}, fills={(1, -1): "F2F2F2", (3, -1): "FFF2E6", (5, -1): "EAF1FB"})
-notes(sV, f"""두 버전을 같은 출하계획(2027 {va[2] / 1000:.2f}톤, 2028 {va[5] / 1000:.2f}톤)과 비교했습니다. 2027년 1~4월은 확정 생산(2,178 · 2,178 · 3,168 · 1,188 kg)으로 두 버전이 같고, 재고는 2027.1.1 기초재고 {f0(INV0)} kg에서 시작해 전월 재고 + 생산 − 출하로 이어집니다.
-① Capa. 기준: 2027년 5~12월 47,200 ÷ 11 = {f1(CM)} kg/월, 2028년 105℃ 50,200 ÷ 11 = {f1(CM105)} kg/월(4월 대정비 {f0(MK)} kg 별도). 2027년 {sg(va[3])} kg, 2028년 {sg(va[6])} kg. 4월 대정비 달에 재고가 {sg(va[9])} kg까지 내려가고, '27 말 {sg(va[7])} kg, '28 말 {sg(va[8])} kg입니다.
-② 기존 생산계획: 2027년 5~12월 3,564 kg, 2028년 3,564 kg(4월 1,188 · 8~12월 3,168 kg). 2027년 {sg(vb[3])} kg, 2028년 {sg(vb[6])} kg으로 '27 말 {sg(vb[7])} kg, '28 말 {sg(vb[8])} kg까지 부족이 커집니다.""")
+vw = wb["08_Case비교"]
+CV = [[vw.cell(row=6 + i, column=c).value for c in range(2, 12)] for i in range(3)]   # Case, 리플럭스, Batch, 생산, 판매, 차이, 말재고, 최저, 시점, 최저재고일
+header(sV, 6, "Case 비교 — 2027년 생산 · 판매 · 재고",
+       f"'27 말 재고  Case I {f0(CV[0][6])} · Case II {f0(CV[1][6])} · Case III {f0(CV[2][6])} kg (4월 {f0(CV[2][7])} kg)")
+sec(sV, 1.05, "① 2027년 연간 비교 (kg)", "재고 = 전월 재고 + 생산 − 판매 · 26.9말 2,300 kg 시작")
+SALE = {"I": "계획 比 CXMT·이지켐 조정", "II": "추가 물량 (월 300 kg)", "III": "추가 물량 (월 300 kg)"}
+rows = [["Case", "판매", "리플럭스", "생산", "판매", "생산 − 판매", "'27 말 재고", "최저 재고 (시점)", "최저 재고일"]]
+for k, v_ in zip(("I", "II", "III"), CV):
+    rows.append([v_[0], SALE[k], v_[1], f0(v_[3]), f0(v_[4]), sg(v_[5]), f0(v_[6]), f"{f0(v_[7])} ('{v_[8]:%y.%-m})", f"{v_[9]:.1f}개월"])
+cl = {(i, 5): ("385723" if rows[i][5].startswith("+") else REDC) for i in (1, 2, 3)}
+cl.update({(3, 7): REDC, (3, 8): REDC})
+mk_table(sV, 0.31, 1.33, [0.75, 1.9, 1.55, 0.8, 0.8, 0.85, 0.85, 1.07, 0.8], rows, rh=0.36, fs=8, left_cols=(0, 1, 2),
+         bolds={(i, 6) for i in (1, 2, 3)} | {(i, 0) for i in (1, 2, 3)}, colors=cl, fills={(3, -1): "FFF2F2"})
+sec(sV, 2.95, "② 월별 재고 (kg) · 재고일 (총판매량 기준, 개월)")
+rows = [["구분"] + [f"{m}월" for _, m in M16]]
+mc = int(REF["cmpm"][1][1:])
+cl, fl = {}, {}
+for i in range(6):
+    vals = [vw.cell(row=mc + i, column=3 + k).value for k in range(16)]
+    lab = vw.cell(row=mc + i, column=2).value
+    if i % 2 == 0:
+        rows.append([lab] + [f0(v) for v in vals])
+        for k, v in enumerate(vals):
+            if v < 500:
+                cl[(len(rows) - 1, k + 1)] = REDC
+        fl[(len(rows) - 1, -1)] = "FFF2E6"
+    else:
+        rows.append([lab] + [f"{v:.1f}" for v in vals])
+        for k, v in enumerate(vals):
+            if v < 0.5:
+                cl[(len(rows) - 1, k + 1)] = REDC
+mk_table(sV, 0.31, 3.23, [1.35] + [0.5] * 16, rows, rh=0.33, fs=7.6, colors=cl, fills=fl, bolds={(1, -1), (3, -1), (5, -1)})
+sec(sV, 5.7, "③ 판단")
+rows = [["Case", "요약"],
+        ["Case I", "판매 조정 · 1월 도입 → 재고 꾸준히 증가 ('27 말 2.2개월) — 재고 과다 관리 필요"],
+        ["Case II", "추가 물량 · 1월 도입 → 4월 대정비 때 2,420 kg (0.9개월)까지 감소 후 1개월 수준 유지"],
+        ["Case III", "추가 물량 · 4월 도입 → 4월 재고 44 kg (0.0개월) — 외부 상품 도입 없이는 공급 부족"]]
+mk_table(sV, 0.31, 5.98, [1.0, 8.37], rows, rh=0.215, fs=8, left_cols=(0, 1), colors={(3, 1): REDC})
+notes(sV, f"""오늘 생산팀과 협의한 세 가지 Case입니다. 공통 조건: 26.9말 재고 2,300 kg, 2026.10~12 정제기 1대 월 12 Batch(2,376 kg), {KGB:.0f} kg/Batch, 4월 대정비 6 Batch(1,188 kg), 2대 운전 후 월 20 Batch(3,960 kg).
+Case I은 판매를 계획 대비 CXMT·이지켐 물량으로 조정(2027 판매 {f0(CV[0][4])} kg)하고 1월 리플럭스 도입·2월 운전입니다. 2027 생산 {f0(CV[0][3])} kg으로 재고가 '27 말 {f0(CV[0][6])} kg까지 늘어납니다.
+Case II는 월 300 kg 추가 물량(2027 판매 {f0(CV[1][4])} kg)에 1월 도입으로, 4월 대정비 때 재고가 {f0(CV[1][7])} kg까지 줄었다가 '27 말 {f0(CV[1][6])} kg입니다.
+Case III은 추가 물량에 리플럭스를 4월 도입·5월 운전으로 늦춘 경우로, 1~3월 1대 12 Batch로는 판매를 따라가지 못해 4월 재고가 {f0(CV[2][7])} kg(0.0개월)까지 떨어집니다. 외부 상품 도입을 반영해야 합니다.
+재고일(개월)은 협의 자료 값을 그대로 옮겼습니다(산식 확인 필요).""")
 
-# ============================================================ 6~9. 연도별 · 버전별
-TITLES = {("A", 2027): ("2027년 ① Capa. 기준 (47.2톤)", f"1~3월 확정 · 4월 대정비 {f0(MK)} · 5~12월 47,200 ÷ 11 = {f1(CM)} kg"),
-          ("B", 2027): ("2027년 ② 기존 생산계획", f"1~3월 확정 · 4월 대정비 {f0(MK)} · 5~12월 3,564 kg"),
-          ("A", 2028): ("2028년 ① Capa. 기준 (50.2톤)", f"4월 대정비 {f0(MK)} · 나머지 11개월 50,200 ÷ 11 = {f1(CM105)} kg"),
-          ("B", 2028): ("2028년 ② 기존 생산계획", f"4월 대정비 {f0(MK)} · 1~7월 3,564 · 8~12월 3,168 kg")}
-year_slides = []
-for num, (ver, yr) in enumerate((("A", 2027), ("B", 2027), ("A", 2028), ("B", 2028)), start=7):
-    s = new_slide(); year_slides.append(s)
-    g = {k: mrow(ver, yr, k) for k in ("cond", "plan", "pb", "diff", "inv", "hx", "cx", "ez", "hs", "ship", "nb", "l2m")}
-    pl, sh_, df, inv = g["plan"][1], g["ship"][1], g["diff"][1], g["inv"][0]
-    lowv = min(inv); lowm = inv.index(lowv) + 1
-    ttl, basis = TITLES[(ver, yr)]
-    stock = f"연말 재고 {sg(inv[-1])} kg" + (f" ({lowm}월 {sg(lowv)})" if (lowv < 0 and lowm < 12) else "")
-    header(s, num, ttl, f"생산 {pl / 1000:.2f}톤 vs 출하 {sh_ / 1000:.2f}톤 → {sg(df)} kg · {stock}")
-    sec(s, 1.05, f"① 월별 생산 · 출하 · 재고 (kg)", basis)
-    conds = g["cond"][0]
-    spans, a = [], 0
-    for m in range(1, 13):
-        if m == 12 or conds[m] != conds[a]:
-            spans.append((a + 1, m, conds[a])); a = m
-    crow = ["운전 조건"] + [""] * 13
-    for a_, b_, t_ in spans:
-        crow[a_] = t_
-    rows = [["구분"] + [f"{m}월" for m in range(1, 13)] + ["연간"], crow]
-    spec = (("plan", "생산", f1, f0), ("pb", "Batch (÷190)", f1, f1), ("diff", "생산 − 출하", sg, sg),
-            ("inv", "재고", sg, sg), ("hx", "SK하이닉스", f0, f0), ("cx", "CXMT", f0, f0),
-            ("ez", "이지켐", f0, f0), ("hs", "한솔", f0, f0), ("ship", "출하 합계", f0, f0), ("nb", "필요 Batch", f1, f1),
-            ("l2m", "200 L 충진", lambda v: v.replace(" ", ""), str))
-    for key, lab, fm, ft in spec:
-        vals, tot = g[key]
-        if key == "plan":
-            cells = [f0(v) for v in vals]
-        else:
-            cells = [fm(v) for v in vals]
-        rows.append([lab] + cells + [ft(tot) if key != "inv" else sg(vals[-1])])
-    fills = {(0, -1): "595959", (5, -1): "FFF2E6"}
-    for a_, b_, t_ in spans:
-        fills[(1, a_)] = {"대정비": "D9D9D9", "정제기 1대": "F2F2F2"}.get(t_, "FDE9E7")
-    for m in range(1, 13):
-        if conds[m - 1] == "대정비":
-            fills[(2, m)] = "EDEDED"
-        elif yr == 2027 and m <= 4:
-            fills[(2, m)] = "DDEBF7"
-    colors = {(1, a_): REDC for a_, b_, t_ in spans if t_ == "대정비"}
-    for ri in (4, 5):
-        for j in range(1, 14):
-            if rows[ri][j].startswith("+"):
-                colors[(ri, j)] = "385723"
-    mk_table(s, 0.31, 1.32, [1.15] + [0.615] * 12 + [0.84], rows, rh=0.38, fs=8.2,
-             merges=[(1, a_, b_) for a_, b_, t_ in spans if b_ > a_], fills=fills, colors=colors,
-             bolds={(2, -1), (5, -1), (10, -1), (1, -1)})
-    ez_m = g["ez"][0]
-    notes(s, (f"{ttl}. 생산 {f0(pl)} kg, 출하 {f0(sh_)} kg, 차이 {sg(df)} kg. " +
-              ("2027년 1~4월은 확정 생산(2,178 · 2,178 · 3,168 · 1,188 kg, 4월 대정비)입니다. " if yr == 2027 else "") +
-              ("5월부터 월 Capa. 47,200 ÷ 11 = " + f1(CM) + " kg을 적용했습니다. " if (ver, yr) == ("A", 2027) else "") +
-              ("105℃ 50.2톤 기준으로 50,200 ÷ 11 = " + f1(CM105) + " kg, 4월 대정비 1,188 kg입니다. 105℃는 품질 검증·승인이 전제입니다. "
-               if (ver, yr) == ("A", 2028) else "") +
-              ("기존 생산계획 수치(3,564 · 3,168 · 2,178 · 1,188 kg)는 198 kg × 정수 Batch(18 · 16 · 11 · 6)와 일치합니다 — 계획 Batch량 기준 확인 필요. "
-               if ver == "B" else "") +
-              f"재고는 2027.1.1 기초재고 {f0(V('INV_0'))} kg에서 전월 재고 + 생산 − 출하로 이어지며, {yr}년 최저 {sg(lowv)} kg({lowm}월), 연말 {sg(inv[-1])} kg입니다. " +
-              f"출하: 하이닉스 22,720 ÷ 12, CXMT {f0(g['cx'][1])}, 이지켐 {f0(g['ez'][1])}, 한솔 {f0(g['hs'][1])} kg. " +
-              ("이지켐은 7월부터 월 840 kg입니다. " if yr == 2027 else "2028년 물량은 2027년 하반기 수준을 유지한 비교용 가정입니다. ") +
-              "200 L 충진은 이지켐·한솔 수동 8 h/용기 기준이며, ARS 시간이 실측되면 Excel 01_입력에서 바뀝니다."))
+# ============================================================ 7~9. Case 상세
+CASE_T = {"I": ("판매 : 계획 比 CXMT, 이지켐 물량 조정", "생산 : 1월 Reflux Column 도입 운영 (2월 운전)", ""),
+          "II": ("판매 : 추가 물량", "생산 : 1월 Reflux Column 도입 운영 (2월 운전)", ""),
+          "III": ("판매 : 추가 물량", "생산 : 4월 Reflux Column 도입 운영 (5월 운전)", "외부 상품 도입 반영 필요")}
+case_slides = []
+for num, (k, sheet) in enumerate((("I", "05_Case1"), ("II", "06_Case2"), ("III", "07_Case3")), start=7):
+    s = new_slide(); case_slides.append(s)
+    cw_ = wb[sheet]; P = MAP["CROW"][k]
+    g = {key: [cw_.cell(row=P[key], column=3 + i).value for i in range(17)] for key in
+         ("batch", "prod", "sale", "skh", "cx", "ez", "add", "inv", "d_tot", "d_sk", "d_skc")}
+    v_ = CV[("I", "II", "III").index(k)]
+    t1, t2, t3 = CASE_T[k]
+    header(s, num, f"Case {k} | 2026.9 ~ 2027.12 생산 · 판매 · 재고",
+           f"{t1[5:]} · {t2[5:].replace(' Column', '')}" + (f" → {t3}" if t3 else ""))
+    sec(s, 1.05, "① 월별 생산 · 판매 · 재고 (kg)", f"Batch × {KGB:.0f} kg · 재고 = 전월 재고 + 생산 − 판매")
+    yrow = ["구분", "2026년", "", "", "", "2027년"] + [""] * 11 + ["27년 합계"]
+    mrow_ = [""] + [f"{m}월" for _, m in M16] + [""]
+    rows = [yrow, mrow_]
+    def fmt_row(key, fm):
+        vals = g[key]
+        out = []
+        for i, v in enumerate(vals):
+            if i == 16 and key.startswith("d_"):
+                out.append("")
+            elif v in (None, ""):
+                out.append("")
+            elif isinstance(v, str):
+                out.append(v)
+            else:
+                out.append(fm(v))
+        return out
+    spec = (("batch", "Batch (월)", lambda v: f"{v:.0f}"), ("prod", "생산", f0), ("sale", "판매", f0), ("skh", "SKH", f0), ("cx", "CXMT", f0),
+            ("ez", "이지켐", f0), ("add", "추가", f0), ("inv", "재고", f0), ("d_tot", "재고일 (총판매량)", lambda v: f"{v:.1f}"),
+            ("d_sk", "재고일 (SKHY 기준)", lambda v: f"{v:.1f}"), ("d_skc", "재고일 (SKHY·CXMT)", lambda v: f"{v:.1f}"))
+    for key, lab, fm in spec:
+        rows.append([lab] + fmt_row(key, fm))
+    fl = {(0, -1): "595959", (1, -1): "595959", (9, -1): "FFF2E6"}
+    cl = {}
+    intro = 4 if k != "III" else 7
+    for i in range(16):
+        b = g["batch"][i]
+        fl[(3, i + 1)] = "FFFFFF" if i == 0 else ("D9D9D9" if b == 6 else ("FDE9E7" if i > intro else "F2F2F2"))
+        if isinstance(g["inv"][i], (int, float)) and g["inv"][i] < 500:
+            cl[(9, i + 1)] = REDC
+        for ri, key in ((10, "d_tot"), (11, "d_sk"), (12, "d_skc")):
+            if isinstance(g[key][i], (int, float)) and g[key][i] < 0.5:
+                cl[(ri, i + 1)] = REDC
+    for ri in range(5, 9):
+        for j in range(1, 18):
+            cl.setdefault((ri, j), "595959")
+    mk_table(s, 0.31, 1.33, [1.3] + [0.47] * 16 + [0.55], rows, rh=0.315, fs=7.6, merges=[(0, 1, 4), (0, 5, 16)],
+             fills=fl, colors=cl, bolds={(2, -1), (3, -1), (9, -1)}, hdr_rows=2)
+    sec(s, 5.55, "② 2027년 요약")
+    rows = [["2027 Batch", "2027 생산", "2027 판매", "생산 − 판매", "'27 말 재고", "최저 재고 (시점)", "최저 재고일"],
+            [f"{v_[2]:.0f}", f"{f0(v_[3])} kg", f"{f0(v_[4])} kg", f"{sg(v_[5])} kg", f"{f0(v_[6])} kg", f"{f0(v_[7])} kg ('{v_[8]:%y.%-m})", f"{v_[9]:.1f}개월"]]
+    mk_table(s, 0.31, 5.83, [1.2, 1.3, 1.3, 1.3, 1.3, 1.67, 1.3], rows, rh=0.36, fs=9, left_cols=(),
+             bolds={(1, -1)}, colors={(1, 3): "385723" if v_[5] >= 0 else REDC, (1, 5): REDC if v_[7] < 500 else DARK})
+    notes(s, f"""Case {k}. {t1} / {t2}{(' / ' + t3) if t3 else ''}.
+생산은 월 Batch × {KGB:.0f} kg(Batch size 200 kg × Yield 99%)이며, 2026.9월 생산 1,770 kg은 협의 자료 값입니다. 정제기 1대 기간은 월 12 Batch, 리플럭스 운전 후 월 20 Batch, 4월은 대정비로 6 Batch입니다.
+2027 생산 {f0(v_[3])} kg, 판매 {f0(v_[4])} kg으로 {sg(v_[5])} kg, 재고는 '27 말 {f0(v_[6])} kg이고 최저는 {v_[8]:%Y.%-m}월 {f0(v_[7])} kg입니다.
+판매는 SKH 연 22,720 kg, CXMT 4월부터(580 → 7월 780 kg), 이지켐 560 → 6월부터 840 kg{', 추가 물량 월 300 kg' if k != 'I' else ''}입니다. 2026년 판매 합계는 협의 자료 값(10·12월은 고객별 합보다 140 kg 큼)을 그대로 썼습니다.
+재고일(개월)은 협의 자료 값입니다(산식 확인 필요).""")
 
 # ============================================================ 10. 후공정 부하
 sL = new_slide()
 l27 = {k: lrow(2027, k)[0] for k in ("g5bt", "g5h", "gbav", "gbld", "ezc", "hsc", "l2h", "g5oqc", "l2oqc", "qch", "nb")}
-l28 = {k: lrow(2028, k)[0] for k in l27}
-peak = max(l27["gbld"] + l28["gbld"])
-header(sL, 11, "후공정 부하 검토 — 충진 · 검사 · OQC", f"정제능력과 출하능력은 별개 · 5 Gal 충진 최대 월 {max(l27['g5h'] + l28['g5h']):.0f} h = 1교대 {l27['gbav'][0]:.0f} h의 {peak * 100:.0f}%")
-sec(sL, 1.05, "① 월 작업량 (출하계획 기준)", "출하 물량으로 계산 — 생산 버전과 무관")
-cols = (("'27.1~2", l27, 0), ("'27.3~6", l27, 2), ("'27.7~12", l27, 6), ("'28 (월)", l28, 0))
+peak = max(l27["gbld"])
+header(sL, 10, "후공정 부하 검토 — 충진 · 검사 · OQC", f"정제능력과 출하능력은 별개 · 5 Gal 충진 최대 월 {max(l27['g5h']):.0f} h = 1교대 {l27['gbav'][0]:.0f} h의 {peak * 100:.0f}%")
+sec(sL, 1.05, "① 월 작업량 (Case II 판매 기준)", "추가 물량 포함 — 판매 최대 Case")
+cols = (("'27.1", l27, 0), ("'27.4", l27, 3), ("'27.7", l27, 6), ("'27.12", l27, 11))
 items = (("5 Gal 병", "g5bt", f0, "하이닉스 + CXMT ÷ 20 kg"), ("5 Gal 충진 h", "g5h", f0, "2 h/병"),
          ("글로브 박스 가용 h", "gbav", f0, "1교대 8 h × 22일"), ("글로브 박스 부하율", "gbld", lambda v: f"{v * 100:.0f}%", "1교대 기준"),
-         ("200 L 용기", None, f0, "이지켐 140 · 한솔 150 kg"), ("200 L 충진 h", "l2h", f0, "8 h/용기"),
+         ("200 L 용기", None, f0, "이지켐 140 · 추가 150 kg"), ("200 L 충진 h", "l2h", f0, "8 h/용기"),
          ("OQC·출하 h", None, f0, "9병 2 h · 1용기 2 h"), ("검사 h (PQC~FQC)", "qch", f0, "8 h × 필요 Batch"),
-         ("필요 Batch", "nb", f1, "출하 ÷ 190"))
+         ("필요 Batch", "nb", f1, "판매 ÷ 198"))
 rows = [["항목"] + [c[0] for c in cols] + ["기준"]]
 for lab, key, fm, basis in items:
     row_ = [lab]
@@ -627,32 +645,48 @@ cl = {(4, j): REDC for j in range(1, 5) if float(rows[4][j].rstrip("%")) > 100}
 mk_table(sL, 0.31, 1.33, [2.3, 1.05, 1.05, 1.05, 1.05, 2.87], rows, rh=0.28, fs=8, left_cols=(0, 5), bolds={(2, -1), (4, -1)}, colors=cl)
 sec(sL, 4.30, "② 병목 검토")
 rows = [["자원", "현재", "리플럭스 이후", "확인 필요"],
-        ["5 Gal 글로브 박스", "9병 18 h (약 2일)", "월 267 h > 1교대 176 h", "교대 · 인원 · 글로브 박스 수"],
+        ["5 Gal 글로브 박스", "9병 18 h (약 2일)", f"월 {max(l27['g5h']):.0f} h > 1교대 176 h", "교대 · 인원 · 글로브 박스 수"],
         ["200 L 충진", "수동 8 h/용기", "ARS '27.7~ (시간 비슷할 수 있음)", "ARS 단계별 시간 실측"],
         ["검사 (PQC · FQC)", "8 h/Batch", "Batch 증가 · 회수 시점 겹침", "검사 인력 · 승인 대기"],
         ["Product Tank", "PQC 합격 후 이송", "정제기 2대 제품 보관", "Tank 수 · 용량"],
         ["충진 · 포장", "1 Batch 약 2일", "목표 1~1.5일", "개선 방안 · 일정"]]
 mk_table(sL, 0.31, 4.58, [1.9, 2.0, 2.7, 2.77], rows, rh=0.35, fs=8, left_cols=(0, 1, 2, 3))
-notes(sL, f"""후공정 작업량은 출하 물량으로 계산했습니다. 5 Gal은 (하이닉스 + CXMT) ÷ 20 kg × 2 h, 200 L은 이지켐 140 kg · 한솔 150 kg 용기 × 8 h(수동 기준)입니다.
-2027년 하반기부터 5 Gal 충진이 월 약 267 h로 1교대(8 h × 22일 = 176 h)를 넘습니다. 정제기가 2대가 되어도 충진·검사·Tank가 따라오지 못하면 출하량은 늘지 않으므로 교대·인원 계획이 함께 필요합니다.
+notes(sL, f"""후공정 작업량은 판매 물량이 가장 큰 Case II로 계산했습니다. 5 Gal은 (SKH + CXMT) ÷ 20 kg × 2 h, 200 L은 이지켐 140 kg · 추가 물량 150 kg 용기(한솔 기준 가정) × 8 h(수동 기준)입니다.
+2027년 하반기에는 5 Gal 충진이 월 약 {max(l27['g5h']):.0f} h로 1교대(8 h × 22일 = 176 h)를 넘습니다. 정제기가 2대가 되어도 충진·검사·Tank가 따라오지 못하면 출하량은 늘지 않으므로 교대·인원 계획이 함께 필요합니다.
 ARS는 실제 충진은 더 길 수 있지만 용기 투입·반출·퍼지를 포함하면 수동과 전체 시간이 비슷할 수 있다는 설명이 있어, 실측 전까지 수동 8 h를 그대로 적용했습니다. ARS 효과는 Capa.에 더하지 않았습니다.
 충진·포장 1~1.5일, 18 h → 9 h는 검토 중인 개선 방향으로, 계산에는 반영하지 않았습니다.""")
 
-# ============================================================ 11. 생산팀 확인 사항
+# ============================================================ 11. 생산팀 협의 사항
+cw = wb["10_확인사항"]
+sM = new_slide()
+header(sM, 11, "생산팀 협의 사항 — Batch 기준 · Case", "198 kg/Batch · 1대 월 12 / 2대 월 20 Batch · Case I·II·III")
+sec(sM, 1.05, "① 협의 내용과 자료 반영")
+rows = [["구분", "협의 내용", "자료 반영", "확인 필요"]]
+for rr_ in range(19, 23):
+    rows.append([cw.cell(row=rr_, column=c).value for c in range(2, 6)])
+mk_table(sM, 0.31, 1.33, [1.3, 3.3, 2.4, 2.37], rows, fs=8, left_cols=(0, 1, 2, 3), wrap=True, rh_list=[0.3] + [0.62] * 4)
+sec(sM, 4.3, "② 협의 기준값")
+rows = [["Batch size", "Yield", "kg/Batch", "Batch time", "원단위", "1대 월 Batch", "2대 월 Batch", "대정비 월"],
+        [f"{V('B_SIZE'):.0f} kg", f"{V('B_YIELD') * 100:.0f}%", f"{KGB:.0f} kg", f"{V('B_TIME'):.0f} h", f"{V('UNIT_RM'):.3f}",
+         f"{V('MB_ONE'):.0f} ({f0(V('MB_ONE') * KGB)} kg)", f"{V('MB_TWO'):.0f} ({f0(V('MB_TWO') * KGB)} kg)", f"{V('MB_MAINT'):.0f} ({f0(V('MB_MAINT') * KGB)} kg)"]]
+mk_table(sM, 0.31, 4.58, [1.0, 0.8, 1.0, 1.0, 0.85, 1.6, 1.6, 1.52], rows, rh=0.4, fs=8.5, left_cols=(), bolds={(1, -1)})
+notes(sM, """오늘 생산팀과 협의한 내용입니다. Batch size 200 kg에 Yield 99%를 적용해 Batch당 198 kg으로 생산량을 계산하고, Batch time 55 h(IQC를 뺀 준비·투입~FQC와 같은 값으로 보임)와 원단위 1.010을 기준으로 삼았습니다.
+재고일(개월)은 협의 자료 값을 그대로 썼으며, 재고 ÷ 판매로는 같은 값이 나오지 않아 산식을 확인해야 합니다. 2026년 판매 합계와 고객별 물량의 차이(10·12월 140 kg), 26년 SKH 연간 합계 표기 차이(9,960 / 17,210)도 확인 항목입니다.""")
+
+# ============================================================ 12. 생산팀 확인 사항
 sC = new_slide()
 header(sC, 12, "생산팀 확인 사항", "생산팀 대화 내용과 추가 확인 항목")
 sec(sC, 1.05, "① 생산·설비·품질·충진 관련 확인 내용")
-cw = wb["09_확인사항"]
 rows = [["구분", "생산팀 설명", "확인 필요"]]
-for rr_ in range(6, 20):
+for rr_ in range(6, 19):
     rows.append([cw.cell(row=rr_, column=c).value for c in (2, 3, 5)])
-mk_table(sC, 0.31, 1.33, [1.35, 4.75, 3.27], rows, fs=7.4, left_cols=(0, 1, 2), wrap=True, rh_list=[0.27] + [0.37] * 14)
-notes(sC, """생산팀과 나눈 대화 중 생산·품질·설비·충진 관련 내용만 정리했습니다. 구두로 언급된 회수량(160~170 kg, 약 220 kg, 195~200 kg)은 운전 조건과 대상이 구분되지 않아 확정 생산량으로 쓰지 않고, 환산 기준은 190 kg/Batch를 유지했습니다.
-수율은 신규 Crude만이 아니라 재투입·Mix를 포함한 총 투입량 기준으로 따로 계산해야 합니다(Excel 09 시트 입력란). '135 · 120'은 단위가 확인되지 않아 생산량으로 입력하지 않았고, '65%에서 5% 상승'도 정의를 확인할 항목입니다.
+mk_table(sC, 0.31, 1.33, [1.35, 4.75, 3.27], rows, fs=7.6, left_cols=(0, 1, 2), wrap=True, rh_list=[0.28] + [0.395] * 13)
+notes(sC, """생산팀과 나눈 대화 중 생산·품질·설비·충진 관련 내용만 정리했습니다. 구두로 언급된 회수량(160~170 kg, 약 220 kg, 195~200 kg)은 운전 조건과 대상이 구분되지 않아 확정 생산량으로 쓰지 않았고, 생산량은 협의 기준 198 kg/Batch를 적용했습니다.
+수율은 신규 Crude만이 아니라 재투입·Mix를 포함한 총 투입량 기준으로 따로 계산해야 합니다(Excel 10 시트 입력란). '135 · 120'은 단위가 확인되지 않아 생산량으로 입력하지 않았고, '65%에서 5% 상승'도 정의를 확인할 항목입니다.
 이지켐은 색도 때문에 추가 투입을 제한하는 경우가 있어, 고객별 품질·색도 규격과 합격률을 별도로 확인합니다.""")
 
 # ============================================================ 순서 정리 · 원본 3~5장 제거
-order = [s1, sP, sW, s2, sB, sV] + year_slides + [sL, sC]
+order = [s1, sP, sW, s2, sB, sV] + case_slides + [sL, sM, sC]
 lst = prs.slides._sldIdLst
 ids = {prs.part.related_part(x.rId): x for x in lst}
 for old in (s3, s4, s5):
