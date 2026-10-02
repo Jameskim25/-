@@ -164,9 +164,12 @@ row("ARS_HS_S", "한솔 ARS 시작", dt.date(2027, 7, 1), "", "'27.1~6 수동", 
 ars_row = r
 row("ARS_EZ_T", "이지켐 ARS 충진 (아래 단계 합계)", None, "h/용기", "공란이면 수동 8 h로 계산", "calc")
 row("ARS_HS_T", "한솔 ARS 충진 (아래 단계 합계)", None, "h/용기", "공란이면 수동 8 h로 계산", "calc")
-row("WH_DAY", "글로브 박스 근무시간", 8, "h/일", "1교대 기준")
+row("SH_START", "충진 근무 시작 (상근조)", 8, "시", "충진은 보통 상근조만 진행", nf="int")
+row("SH_END", "충진 근무 종료 (상근조)", 17, "시", "", nf="int")
+row("SH_LUNCH", "점심시간 (12:00~13:00)", 1, "h", "근무시간에서 제외")
+row("WH_DAY", "충진 근무시간 (상근조)", "=SH_END-SH_START-SH_LUNCH", "h/일", "08:00~17:00 − 점심 1 h = 8 h/일", "calc")
 row("WD_MON", "월 근무일", 22, "일/월", "", nf="int")
-row("FILL_5G_EL", "5 Gal 9병 충진 경과 (근무시간 반영)", 48, "h", "현장 설명 약 2일 (작업 18 h)")
+row("FILL_5G_EL", "5 Gal 9병 충진 경과 (상근조 기준)", 48, "h", "18 h ÷ 상근조 8 h/일 = 2.25 근무일 → 현장 설명 약 2일 (48 h)")
 r += 1
 put(wsI, r, 2, "ARS 작업 단계 (h/용기)", "hdr", align="left"); put(wsI, r, 3, "이지켐", "hdr"); put(wsI, r, 4, "한솔", "hdr")
 put(wsI, r, 5, "수동과 ARS의 전체 시간 차이 확인용", "hdr", align="left"); r += 1
@@ -244,7 +247,7 @@ items = (("정제기 점유 확인분 (준비·투입 + 순수 정제)", "=T_PRE
          ("다음 Batch 투입 간격 (실측)", '=IF(ISNUMBER(INT_NEXT),INT_NEXT,"확인 필요")', "h", "과거 최대 11 Batch 기준 720 ÷ 11 = 65.5 h"),
          ("검사·승인 대기", '=IF(ISNUMBER(T_WAIT),T_WAIT,"확인 필요")', "h", ""),
          ("5 Gal 9병 충진 작업", "=FILL_5G*BOT_B", "h", "실제 작업시간"),
-         ("5 Gal 9병 충진 경과 (근무시간 반영)", "=FILL_5G*BOT_B/WH_DAY", "근무일", "현장 설명 약 2일 · 교대·연장근무 조건 확인"),
+         ("5 Gal 9병 충진 경과 (상근조 8 h/일)", "=FILL_5G*BOT_B/WH_DAY", "근무일", "상근조 08~17시 · 점심 1 h 제외 → 현장 설명 약 2일"),
          ("kg/Batch − 5 Gal 9병 180 kg", "=KG_B-BOT_B*KG_BOT", "kg", "잔량·추가 충진·다른 고객 배분 확인 (손실 처리 안 함)"))
 for i, (lab, fx, unit, note) in enumerate(items):
     rr = 17 + i
@@ -288,7 +291,7 @@ WAIT0 = r
 wt = (("정제기 Batch 주기", "=T_PREP+T_REF", "=CYC_ASIS-C{r}", "=C{r}+D{r}", "완료 간격 − (준비·투입 + 순수 정제)"),
       ("5 Gal 1 Batch (IQC~OQC)", "=T_57+FILL_5G*BOT_B+OQC_5G", "=WAIT_ASIS", "=C{r}+D{r}", "순수 77 h + 평균 대기"),
       ("200 L 1 Batch (IQC~OQC)", "=T_57+FILL_EZ+OQC_200", "=WAIT_ASIS", "=C{r}+D{r}", "순수 67 h + 평균 대기"),
-      ("5 Gal 9병 충진 (근무시간)", "=FILL_5G*BOT_B", "=FILL_5G_EL-C{r}", "=FILL_5G_EL", "1교대 · 현장 설명 약 2일"))
+      ("5 Gal 9병 충진 (상근조)", "=FILL_5G*BOT_B", "=FILL_5G_EL-C{r}", "=FILL_5G_EL", "상근조 8 h/일 · 현장 설명 약 2일"))
 for i, (lab, pu, wa, ac, basis) in enumerate(wt):
     rr = r + i
     put(ws, rr, 2, lab, "lab")
@@ -511,7 +514,7 @@ load_rows = (("g5kg", "5 Gal 판매 (SKH + CXMT) kg", "=N({hx})+N({cx})", "kg"),
              ("g5bt", "5 Gal 병", "={g5kg}/KG_BOT", "b"),
              ("g5h", "5 Gal 충진 h", "={g5bt}*FILL_5G", "h"),
              ("g5oqc", "5 Gal OQC h", "={g5bt}/BOT_B*OQC_5G", "h"),
-             ("gbav", "글로브 박스 가용 h (1교대)", "=WH_DAY*WD_MON", "h0"),
+             ("gbav", "글로브 박스 가용 h (상근조)", "=WH_DAY*WD_MON", "h0"),
              ("gbld", "글로브 박스 부하율", "={g5h}/{gbav}", "pct"),
              ("ezc", "이지켐 용기", "=N({ez})/KG_EZ", "b"),
              ("ezm", "이지켐 충진 방식", '=IF({ezc}=0,"-",IF({d}>=ARS_EZ_S,"ARS","수동"))', None),
@@ -557,7 +560,7 @@ conv = (("공정시간", "57 h에서 IQC·준비·PQC~이송·FQC를 빼면 순�
         ("수율 표현", "\"65%에서 5% 올렸다\"", "65→70% 개선으로 단정하지 않음", "수치 정의"),
         ("135 · 120", "Mix 유무에 따라 언급", "kg 생산량으로 입력하지 않음", "단위 · 색도 등 품질 지표인지"),
         ("이지켐 색도", "색도 조건 때문에 추가 투입 제한", "고객별 품질 조건 별도", "고객별 품질·색도 규격 · 합격률"),
-        ("5 Gal 충진", "9병 18 h 작업, 근무시간 반영 시 약 2일 · 개선 방향 1~1.5일 · 18 h → 9 h 방안 검토", "2 h/병 · 18 h 유지 (개선은 미반영)", "교대·연장근무 · 충진 인원"),
+        ("5 Gal 충진", "9병 18 h 작업 · 충진은 보통 상근조(08:00~17:00, 점심 12~13시 제외 = 8 h/일)만 진행 → 약 2일 · 개선 방향 1~1.5일 · 18 h → 9 h 방안 검토", "2 h/병 · 18 h 유지 · 상근조 8 h/일 기준 약 2일 (개선은 미반영)", "18 h ÷ 8 h = 2.25일 → 9병째가 3일차로 넘어가는지 · 연장근무·교대 충진 가능 여부 · 인원"),
         ("ARS", "ARS 자체 충진은 더 길 수 있으나 용기 투입·반출·퍼지 포함 시 전체 시간은 비슷할 수 있음", "ARS 시간 미입력 시 수동 8 h 적용 · Capa. 가산 없음", "ARS 작업 단계별 시간 (용기 준비~설비 전환)"),
         ("한솔 충진", "200 L 수동 충진", "8 h/용기 반영", "ARS 전환 후 시간"),
         ("Batch 기준 (협의)", "Batch size 200 kg · Yield 99% → 198 kg/Batch · Batch time 55 h · 원단위 1.010", "생산 = 월 Batch × 198 kg (1대 12 · 2대 20 Batch)", "Batch time 55 h의 구성 (IQC 제외 57 h와 일치 여부)"),
