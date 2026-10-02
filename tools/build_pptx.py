@@ -112,6 +112,9 @@ def sec(slide, y, main, sub="", x=0.31):
     b, t = slide.shapes[-2], slide.shapes[-1]
     pos(b, x=x, y=y + 0.03); pos(t, x=x + 0.12, y=y, w=9.2 - x)
     set_lines(t, [[main, f"   {sub}" if sub else ""]])
+    runs = t.text_frame.paragraphs[0].runs
+    if len(runs) > 1:
+        runs[1].font.size = Pt(8.5); runs[1].font.color.rgb = RGBColor.from_string("C00000"); runs[1].font.bold = True
     return t
 
 
@@ -185,22 +188,22 @@ def gantt(slide, top, units, intv, share200, lanes, pitch=0.29):
     t_iqc, t_prep, t_ref, t57 = V("T_IQC"), V("T_PREP"), V("T_REF"), V("T_57")
     f5, f2 = V("FILL_5G") * V("BOT_B"), V("FILL_EZ")
     for day in range(1, 31):
-        tbox(slide, X0 + (day - 1) * 24 * kk, top, 24 * kk, 0.13, [(str(day), 5.3, day in (1, 30), "404040")], align="c")
-    tbox(slide, 0.31, top, 0.95, 0.13, [("일 (30일 · 720 h)", 5.3, False, GRAYT)])
+        tbox(slide, X0 + (day - 1) * 24 * kk, top, 24 * kk, 0.15, [(str(day), 6.8, day in (1, 30), "404040")], align="c")
+    tbox(slide, 0.31, top, 1.0, 0.15, [("일 (30일)", 6.8, False, GRAYT)])
     lt = top + 0.17
     nl = len(lanes)
     for i, lab in enumerate(lanes):
-        tbox(slide, 0.31, lt + i * pitch + (pitch - 0.15) / 2, 1.0, 0.15, [(lab, 6.2, True, DARK)])
+        tbox(slide, 0.31, lt + i * pitch + (pitch - 0.17) / 2, 1.0, 0.17, [(lab, 7.8, True, DARK)])
         box(slide, X0, lt + (i + 1) * pitch - 0.02, X1 - X0, 0.004, "E7E6E6")
     for day in range(31):
         box(slide, X0 + day * 24 * kk, lt, 0.004, nl * pitch - 0.02, "E7E6E6")
-    ly = {lab: lt + i * pitch + (pitch - 0.22) / 2 for i, lab in enumerate(lanes)}
+    ly = {lab: lt + i * pitch + (pitch - 0.26) / 2 for i, lab in enumerate(lanes)}
 
     def bar(lane, a, b, color, text="", tcol="FFFFFF", **kw):
         a, b = max(a, 0), min(b, H)
         if b <= a:
             return
-        box(slide, X0 + a * kk, ly[lane], (b - a) * kk, 0.2, color, text if (b - a) * kk > 0.28 else "", 5.2, tcol, **kw)
+        box(slide, X0 + a * kk, ly[lane], (b - a) * kk, 0.24, color, text if (b - a) * kk > 0.3 else "", 6.6, tcol, **kw)
 
     done = []
     for u, ph in enumerate(units):
@@ -222,7 +225,7 @@ def gantt(slide, top, units, intv, share200, lanes, pitch=0.29):
         if 0 <= c < H:
             is200 = int((idx + 1) * n200 / len(cnt)) > int(idx * n200 / len(cnt))
             idx += 1; cum += V("KG_B")
-            tbox(slide, X0 + c * kk - 0.2, ly[lanes[-1]] + 0.03, 0.4, 0.14, [(f"{cum:,.0f}", 5.0, False, BLU)], align="c")
+            tbox(slide, X0 + c * kk - 0.25, ly[lanes[-1]] + 0.04, 0.5, 0.16, [(f"{cum:,.0f}", 6.6, True, BLU)], align="c")
         else:
             is200 = False
         if is200:
@@ -231,10 +234,10 @@ def gantt(slide, top, units, intv, share200, lanes, pitch=0.29):
             bar(lanes[-3], c, c + f5, GRN, "5 Gal")
     yl = lt + nl * pitch + 0.04
     xl = 1.32
-    for colr, lab, dash in ((ORG, f"준비·투입 + 순수 정제 ({t_prep + t_ref:.0f} h)", False), (None, "정제기 해제·전환 (확인 필요)", True),
-                            (BLU, "PQC~이송 · FQC (8 h)", False), (GRN, f"5 Gal 충진 ({f5:.0f} h)", False), (PUR, f"200 L 충진 ({f2:.0f} h)", False)):
-        box(slide, xl, yl + 0.02, 0.16, 0.1, colr, line="BF9000" if dash else None, dash=dash)
-        tbox(slide, xl + 0.2, yl, 1.5, 0.13, [(lab, 5.5, False, "404040")])
+    for colr, lab, dash in ((ORG, f"준비·정제 {t_prep + t_ref:.0f} h", False), (None, "해제·전환 (확인)", True),
+                            (BLU, "PQC~FQC 8 h", False), (GRN, f"5 Gal 충진 {f5:.0f} h", False), (PUR, f"200 L 충진 {f2:.0f} h", False)):
+        box(slide, xl, yl + 0.03, 0.2, 0.12, colr, line="BF9000" if dash else None, dash=dash)
+        tbox(slide, xl + 0.25, yl, 1.4, 0.17, [(lab, 7.2, False, "404040")])
         xl += 1.68
     return len(cnt), yl + 0.2
 
@@ -269,26 +272,25 @@ header(s1, 1, "As-is | 공정 흐름과 공정시간", f"현재 정제기 1대 �
 sec(s1, 3.80, "① 공정시간 단순 합계 (h)", "IQC~FQC 57 h + 충진 + OQC")
 x0, k = 2.10, (8.85 - 2.10) / 77
 paths = (("5 Gal 9병 (하이닉스·CXMT)", 18, "충진 18 h"), ("이지켐 200 L 1용기", 8, "충진 8 h"), ("한솔 200 L 1용기", 8, "충진 8 h"))
-segs = ((V("T_IQC"), "A6A6A6", "IQC 2"), (V("T_PREP"), "F4B183", "2"), (TREF, ORG, f"순수 정제 {TREF:.0f} h"), (V("T_PQC"), "9DC3E6", "PQC~이송 6"),
+segs = ((V("T_IQC"), "A6A6A6", "IQC 2"), (V("T_PREP"), "F4B183", "2"), (TREF, ORG, f"순수 정제 {TREF:.0f} h"), (V("T_PQC"), "9DC3E6", "PQC 6"),
         (V("T_FQC"), BLU, "FQC 2"))
 for i, (lab, fh, flab) in enumerate(paths):
-    yy = 4.13 + i * 0.36
-    tbox(s1, 0.31, yy + 0.05, 1.75, 0.16, [(lab, 6.8, True, DARK)])
+    yy = 4.12 + i * 0.38
+    tbox(s1, 0.31, yy + 0.06, 1.8, 0.18, [(lab, 7.8, True, DARK)])
     xx = x0
     for hh, colr, t in segs + ((fh, GRN, flab), (V("OQC_200") if i else V("OQC_5G"), "7F7F7F", "OQC 2")):
-        box(s1, xx, yy, hh * k, 0.26, colr, t if hh * k > 0.25 else "", 5.6, "1F1F1F" if colr in ("A6A6A6", "F4B183", "9DC3E6") else "FFFFFF")
+        box(s1, xx, yy, hh * k, 0.3, colr, t if hh * k > 0.45 else "", 7, "1F1F1F" if colr in ("A6A6A6", "F4B183", "9DC3E6") else "FFFFFF")
         xx += hh * k
-    tbox(s1, xx + 0.06, yy + 0.04, 0.6, 0.18, [(f"{V(f'lt{i}'):.0f} h", 8, True, REDC)])
+    tbox(s1, xx + 0.06, yy + 0.04, 0.7, 0.2, [(f"{V(f'lt{i}'):.0f} h", 9.5, True, REDC)])
 mx = x0 + T57 * k
-box(s1, mx, 4.07, 0.012, 1.12, REDC)
-tbox(s1, mx - 0.55, 5.20, 1.1, 0.14, [(f"▲ IQC~FQC {T57:.0f} h", 6, True, REDC)], align="c")
-rows = [["경로", "IQC", "준비·투입", "순수 정제", "PQC~이송", "FQC", "IQC~FQC", "충진", "OQC·출하", "합계", "충진량", "충진 기준"]]
+box(s1, mx, 4.06, 0.014, 1.16, REDC)
+tbox(s1, mx - 0.6, 5.24, 1.2, 0.17, [(f"▲ IQC~FQC {T57:.0f} h", 7.5, True, REDC)], align="c")
+rows = [["경로", "IQC~FQC", "충진", "OQC·출하", "합계", "충진량 · 기준"]]
 for i, (lab, fh, _) in enumerate(paths):
-    rows.append([lab, "2", "2", f"{TREF:.0f}", "6", "2", f"{T57:.0f}", f"{fh}", "2", f"{V(f'lt{i}'):.0f}",
-                 ["180 kg (9병)", "140 kg", "150 kg"][i], ["2 h/병 × 9병", "8 h/용기 (수동)", "8 h/용기 (수동)"][i]])
-mk_table(s1, 0.31, 5.48, [1.85, 0.55, 0.65, 0.65, 0.65, 0.55, 0.7, 0.55, 0.65, 0.55, 0.8, 1.22], rows, rh=0.27, fs=6.8,
-         bolds={(1, 9), (2, 9), (3, 9), (1, 6), (2, 6), (3, 6)}, colors={(i, 9): REDC for i in (1, 2, 3)},
-         fills={(i, 3): "FFF2E6" for i in (1, 2, 3)})
+    rows.append([lab, f"{T57:.0f} h", f"{fh} h", "2 h", f"{V(f'lt{i}'):.0f} h",
+                 ["180 kg (9병) · 2 h/병", "140 kg · 8 h/용기", "150 kg · 8 h/용기"][i]])
+mk_table(s1, 0.31, 5.55, [2.6, 1.15, 1.15, 1.15, 1.15, 2.17], rows, rh=0.3, fs=8.5,
+         bolds={(1, 4), (2, 4), (3, 4)}, colors={(i, 4): REDC for i in (1, 2, 3)})
 notes(s1, f"""As-is는 정제기 1대로 하이닉스·CXMT·이지켐(한솔 '27~)을 함께 생산합니다.
 57 h는 IQC부터 FQC까지의 현재 보고 기준이고, 순수 정제 {TREF:.0f} h는 57 − IQC 2 − 준비·투입 2 − PQC~이송 6 − FQC 2로 계산한 값입니다(실측 아님). 대화 중 57 − 2 − 6 = 49 h 계산, 과거 약 72 h · 최근 약 53 h 언급이 있어 원자료의 측정 시작·종료점은 확인이 필요합니다.
 PQC와 제품 이송은 합쳐서 6 h입니다. 57 h에는 충진·OQC가 포함되지 않습니다.
@@ -301,28 +303,26 @@ sA = new_slide()
 ai, ab, akg = V("asis_int"), V("asis_b"), V("asis_kg")
 header(sA, 2, "As-is | 정제기 1대 한 달 운전", f"정제기 1대 한 달 {ab:.0f} Batch = {f0(akg)} kg (과거 최대) · 연간 26.2톤 = 월 {f0(V('CAPA_NOW') * 1000 / 12)} kg")
 sec(sA, 1.05, "① 30일 운전 예시 — 과거 최대 월 11 Batch", f"투입 간격 720 ÷ 11 = {ai:.1f} h")
-n_, yb = gantt(sA, 1.36, [0.0], ai, CHAN[(2027, 1)], ["정제기", "PQC~이송·FQC", "5 Gal 충진", "200 L 충진", "누적 생산 kg"], pitch=0.36)
+n_, yb = gantt(sA, 1.36, [0.0], ai, CHAN[(2027, 1)], ["정제기", "PQC~FQC", "5 Gal 충진", "200 L 충진", "누적 kg"], pitch=0.38)
 cm = wb["03_한달운전"]
 cr = lambda r_, c_: cm.cell(row=r_, column=c_).value
-sec(sA, 3.78, "② 월 생산량 비교 — 정제기 1대 · 720 h")
-rows = [["기준", "Batch/월", "kg/월", "연간 (t)", "투입 간격 (h)", "산출 근거"]]
-for rr_, basis in ((42, "720 ÷ 45 · 정제기 점유·전환·보수 제외 (이론)"), (43, "정제 11 × 45 = 495 h + 기타 225 h"),
-                   (44, "26,200 ÷ 190 = 137.9 Batch · 138 × 190 = 26,220 kg")):
-    rows.append([cr(rr_, 2), f"{cr(rr_, 4):.1f}" if rr_ == 44 else f"{cr(rr_, 4):.0f}", f0(cr(rr_, 5)), f"{cr(rr_, 6):.2f}" if rr_ != 42 else f"{cr(rr_, 6):.1f}",
-                 f"{cr(rr_, 7):.1f}", basis])
-rows.append(["2026 출하 (제시분)", f"{V('sh26') / 12 / KGB:.1f}", f0(V("sh26") / 12), f"{V('sh26') / 1000:.2f}", "-", "하이닉스 16,980 + 이지켐 2,240 · CXMT·한솔 미제시"])
-mk_table(sA, 0.31, 4.06, [2.2, 0.9, 0.95, 0.95, 1.05, 3.32], rows, rh=0.29, fs=7, bolds={(2, -1), (3, -1)}, left_cols=(0, 5),
+sec(sA, 3.86, "② 월 생산량 비교 — 정제기 1대")
+rows = [["기준", "Batch/월", "kg/월", "연간 (t)", "근거"]]
+for rr_, lab, basis in ((42, "이론 (순수 정제만)", "720 h ÷ 45 h"), (43, "과거 최대", "11 Batch × 190 kg"), (44, "현재 Capa. 26.2톤", "26,200 kg ÷ 12")):
+    rows.append([lab, f"{cr(rr_, 4):.1f}" if rr_ == 44 else f"{cr(rr_, 4):.0f}", f0(cr(rr_, 5)), f"{cr(rr_, 6):.1f}", basis])
+rows.append(["2026 출하 (제시분)", f"{V('sh26') / 12 / KGB:.1f}", f0(V("sh26") / 12), f"{V('sh26') / 1000:.1f}", "CXMT·한솔 미제시"])
+mk_table(sA, 0.31, 4.14, [2.6, 1.1, 1.2, 1.2, 3.27], rows, rh=0.32, fs=8.5, bolds={(2, -1), (3, -1)}, left_cols=(0, 4),
          fills={(2, -1): "FFF2E6"})
-sec(sA, 5.70, "③ 과거 최대 11 Batch의 720 h 구성")
+sec(sA, 5.86, "③ 과거 최대 11 Batch의 720 h 구성")
 k7 = (9.69 - 1.32) / 720
 oth = 720 - 11 * (TREF + V("T_PREP"))
-segs = ((11 * TREF, ORG, f"순수 정제 11 × {TREF:.0f} = {11 * TREF:.0f} h"), (11 * V("T_PREP"), "F4B183", ""), (oth, "D9D9D9", f"기타 {oth:.0f} h"))
+segs = ((11 * TREF, ORG, f"순수 정제 11 × {TREF:.0f} = {11 * TREF:.0f} h"), (11 * V("T_PREP"), "F4B183", f"{11 * V('T_PREP'):.0f}"),
+        (oth, "D9D9D9", f"해제·전환·대기·보수 등 {oth:.0f} h"))
 xx = 1.32
-tbox(sA, 0.31, 6.07, 1.0, 0.18, [("720 h", 7, True, DARK)])
+tbox(sA, 0.31, 6.22, 1.0, 0.2, [("720 h", 8.5, True, DARK)])
 for hh, colr, t in segs:
-    box(sA, xx, 6.02, hh * k7, 0.3, colr, t, 6.5, "1F1F1F" if colr != ORG else "FFFFFF")
+    box(sA, xx, 6.16, hh * k7, 0.36, colr, t, 8, "1F1F1F" if colr != ORG else "FFFFFF")
     xx += hh * k7
-tbox(sA, 1.32, 6.37, 8.37, 0.15, [(f"준비·투입 11 × 2 = {11 * V('T_PREP'):.0f} h · 기타 = 정제기 해제·세척·전환·승인 대기·보수·월 경계 등 (구성 확인)", 6, False, "595959")], align="r")
 notes(sA, f"""정제기 1대의 과거 최대인 월 11 Batch를 30일(720 h)에 놓으면 투입 간격은 {ai:.1f} h이고, 11 × 190 = {f0(akg)} kg입니다.
 막대는 준비·투입 2 h + 순수 정제 {TREF:.0f} h를 정제기 운전으로, 이후 다음 투입까지를 해제·전환 구간(구성 확인)으로 표시했습니다. 정제가 끝난 Batch는 PQC~이송·FQC 8 h 뒤 충진하며, 그동안 다음 Batch가 정제됩니다.
 순수 정제만 놓고 보면 720 ÷ 45 = 16 Batch(3,040 kg)이지만 점유·전환·보수 등을 뺀 이론값입니다. 11 Batch 기준 495 h를 뺀 225 h를 전부 손실이나 충진시간으로 보지 않습니다.
@@ -360,31 +360,30 @@ for sh in list(s2.shapes):
     if sh.name == "TextBox 163":
         delete(sh)
 header(s2, 3, "To-be | 정제기 2대 운영과 투자 일정", "정제기 2대의 투입 시점을 엇갈리게 운영하여 생산을 병행하고, 후공정 부하를 분산하는 계획")
-sec(s2, 3.80, "① 투자 · 운영 일정", "매년 4월 대정비 · '27.5 정제기 2대 생산 시작")
+sec(s2, 3.76, "① 투자 · 운영 일정", "매년 4월 대정비 · '27.5 정제기 2대 생산 시작")
 yrs = ["구분", "2027년"] + [""] * 11 + ["2028년"] + [""] * 5
 mons = [""] + [str(m) for m in range(1, 13)] + [str(m) for m in range(1, 7)]
-r_cur = ["정제기 1대 (확정 생산)", "2,178 · 2,178 · 3,168 kg", "", ""] + [""] * 15
+r_cur = ["정제기 1대 (확정)", "2,178 · 2,178 · 3,168", "", ""] + [""] * 15
 r_mt = ["대정비 (매년 4월)"] + [""] * 3 + [f"{f0(MK)}"] + [""] * 11 + [f"{f0(MK)}"] + ["", ""]
-r_rf = ["정제기 2대 생산", "", "", "", "", f"월 {f1(CM)} kg (47.2톤 기준) · 기존 생산계획 3,564 kg"] + [""] * 7 + [f"105℃ 월 {f1(CM105)} kg", "", "", "", f"{f1(CM105)}", ""]
-r_ars = ["200 L 충진", "수동 8 h/용기 (이지켐 · 한솔)"] + [""] * 5 + ["ARS 운영 '27.7~ · 이지켐 · 한솔 200 L (5 Gal은 글로브 박스 유지)"] + [""] * 11
-r_105 = ["105℃ (2028)"] + [""] * 12 + ["103 → 105℃ · +3톤 · 품질 검증 및 승인"] + [""] * 5
+r_rf = ["정제기 2대 생산", "", "", "", "", f"월 {f1(CM)} kg (47,200 ÷ 11) · 기존 생산계획 3,564 kg"] + [""] * 7 + [f"월 {f1(CM105)} kg", "", "", "", f"{f1(CM105)}", ""]
+r_ars = ["200 L 충진", "수동 8 h/용기"] + [""] * 5 + ["ARS '27.7~ (이지켐 · 한솔) · 5 Gal은 글로브 박스 유지"] + [""] * 11
+r_105 = ["105℃ (2028)"] + [""] * 12 + ["103 → 105℃ · +3톤 (50.2톤)"] + [""] * 5
 rows = [yrs, mons, r_cur, r_mt, r_rf, r_ars, r_105]
 fl = {(0, -1): "595959", (1, -1): "F2F2F2"}
 fl.update({(2, j): "FDE9E7" for j in (1,)}); fl.update({(3, 4): "D9D9D9", (3, 16): "D9D9D9"})
 fl.update({(4, 5): "FDE9E7", (4, 13): "FDE9E7", (4, 17): "FDE9E7", (5, 7): "E4DFEC", (6, 13): "E4DFEC"})
 cl = {(1, j): DARK for j in range(19)}
 cl.update({(2, 1): REDC, (3, 4): REDC, (3, 16): REDC, (4, 5): REDC, (4, 13): REDC, (4, 17): REDC, (5, 1): GRAYT, (5, 7): PUR, (6, 13): PUR})
-mk_table(s2, 0.31, 4.08, [1.6] + [0.43] * 18, rows, rh=0.215, fs=6.3,
+mk_table(s2, 0.31, 4.02, [1.6] + [0.43] * 18, rows, rh=0.235, fs=7.3,
          merges=[(0, 1, 12), (0, 13, 18), (2, 1, 3), (4, 5, 12), (4, 13, 15), (4, 17, 18), (5, 1, 6), (5, 7, 18), (6, 13, 18)],
          fills=fl, colors=cl, bolds={(2, 1), (3, 4), (3, 16), (4, 5), (4, 13), (4, 17), (1, -1)}, hdr_rows=1)
-sec(s2, 5.70, "② Capa. 기준 — 연간 Capa. ÷ 11개월", f"대정비 월(4월)은 {f0(MK)} kg 별도")
-ck = wb["04_Capa기준"]
-rows = [["구분", "연간 (t)", "월 기준 (kg)", "Batch/월", "적용", "산식"]]
-for rr_, f_ in ((6, "26.2 ÷ 12"), (7, f"47,200 ÷ 11 · 대정비 월 {f0(MK)} kg 별도"), (8, f"50,200 ÷ 11 · 대정비 월 {f0(MK)} kg 별도"), (9, "Mix·Premix 준비 등 설비 시간 필요 → 2배 아님")):
-    rows.append([ck.cell(row=rr_, column=2).value, f"{ck.cell(row=rr_, column=3).value:.1f}", f1(ck.cell(row=rr_, column=4).value),
-                 f"{ck.cell(row=rr_, column=5).value:.1f}", ck.cell(row=rr_, column=6).value, f_])
-mk_table(s2, 0.31, 5.98, [2.2, 0.8, 1.0, 0.8, 0.9, 3.67], rows, rh=0.17, fs=6.5, left_cols=(0, 5), bolds={(2, -1), (3, -1)},
-         colors={(4, j): GRAYT for j in range(6)})
+sec(s2, 5.78, "② 월 생산 기준 — 4월 대정비 1,188 kg · 나머지 11개월에 연간 Capa. ÷ 11")
+rows = [["구분", "연간 Capa.", "4월 (대정비)", "나머지 11개월", "산식"],
+        ["현재 정제기 1대", f"{V('CAPA_NOW'):.1f}톤", "-", f"{f0(V('CAPA_NOW') * 1000 / 12)} kg", "26,200 ÷ 12"],
+        ["정제기 2대 ('27.5~)", f"{V('CAPA_RF'):.1f}톤", f"{f0(MK)} kg", f"{f1(CM)} kg", "47,200 ÷ 11"],
+        ["2028 105℃ 적용", f"{V('CAPA_105'):.1f}톤", f"{f0(MK)} kg", f"{f1(CM105)} kg", "50,200 ÷ 11"]]
+mk_table(s2, 0.31, 6.04, [2.6, 1.3, 1.5, 1.7, 2.27], rows, rh=0.205, fs=8, bolds={(2, -1), (3, -1)},
+         colors={(2, 3): REDC, (3, 3): REDC})
 notes(s2, f"""리플럭스 이후에는 정제기 2대를 활용합니다. 정제기 1을 먼저 투입·운전하고, 초류 진행에 맞춰 정제기 2를 투입해 두 설비의 운전 구간을 겹칩니다(현장 설명: 다음 날 투입·초류 중간·초류 종료 무렵 — 투입 간격은 미확정).
 정제기별 Batch 시간이 절반으로 줄어드는 것이 아니라 두 설비의 생산을 겹쳐 전체 생산량을 늘리는 방식이며, 제품 회수 시점이 엇갈려 검사·충진 부하가 한꺼번에 몰리지 않습니다. 57 ÷ 2 = 28.5 h는 이상적인 경우의 도착 간격 설명일 뿐 정제기별 Batch 시간이 아닙니다.
 일정: '27.1~3 정제기 1대 확정 생산(2,178 · 2,178 · 3,168 kg) → '27.4 대정비({f0(MK)} kg) → '27.5부터 정제기 2대. 대정비는 매년 4월로 반영했습니다. 200 L ARS는 '27.7부터(이지켐·한솔), 5 Gal은 글로브 박스를 유지합니다.
@@ -397,16 +396,15 @@ sB = new_slide()
 ti, toff, tb, tbm = V("tobe_int"), V("tobe_off"), V("tobe_b"), V("tobe_bm")
 header(sB, 4, "To-be | 정제기 2대 시차 운전 한 달", f"정제기 2대 · 30일 {tb:.0f} Batch = {f0(tb * KGB)} kg · 월평균 {tbm:.1f} Batch = {f0(CM)} kg (47.2톤)")
 sec(sB, 1.05, "① 30일 운전 예시 — 정제기 2대 투입 시점 엇갈림", f"설비별 투입 간격 {ti:.1f} h · 정제기 2 시차 {toff:.0f} h (가정)")
-gantt(sB, 1.36, [0.0, toff], ti, CHAN[(2027, 7)], ["정제기 1", "정제기 2", "PQC~이송·FQC", "5 Gal 충진", "200 L 충진", "누적 생산 kg"], pitch=0.35)
-sec(sB, 4.10, "② 월 생산량 비교")
-rows = [["기준", "정제기", "Batch/월", "kg/월", "연간 (t)", "설비별 투입 간격 (h)", "산출 근거"]]
-for rr_ in (44, 43, 45, 46, 47):
+gantt(sB, 1.36, [0.0, toff], ti, CHAN[(2027, 7)], ["정제기 1", "정제기 2", "PQC~FQC", "5 Gal 충진", "200 L 충진", "누적 kg"], pitch=0.36)
+sec(sB, 4.12, "② 월 생산량 비교 (대정비 외 달)")
+rows = [["기준", "정제기", "Batch/월", "kg/월", "연간 (t)", "설비별 간격 (h)"]]
+for rr_, lab in ((44, "현재 Capa. 26.2톤"), (43, "과거 최대"), (45, "기존 생산계획 ('27.5~)"), (46, "Capa. 47.2톤 기준"), (47, "2028 105℃ 50.2톤 기준")):
     yv = cr(rr_, 6)
-    rows.append([cr(rr_, 2), f"{cr(rr_, 3):.0f}대", f"{cr(rr_, 4):.1f}", f0(cr(rr_, 5)), f"{yv:.1f}" if isinstance(yv, (int, float)) else "-",
-                 f"{cr(rr_, 7):.1f}", cr(rr_, 8)])
+    rows.append([lab, f"{cr(rr_, 3):.0f}대", f"{cr(rr_, 4):.1f}", f0(cr(rr_, 5)), f"{yv:.1f}" if isinstance(yv, (int, float)) else "-", f"{cr(rr_, 7):.1f}"])
 pl27 = mrow("B", 2027, "plan")[1]
 rows[3][4] = f"{pl27 / 1000:.1f} ('27)"
-mk_table(sB, 0.31, 4.38, [2.2, 0.6, 0.85, 0.95, 0.9, 1.25, 2.62], rows, rh=0.38, fs=7.2, left_cols=(0, 6), bolds={(4, -1), (5, -1)},
+mk_table(sB, 0.31, 4.40, [2.9, 0.9, 1.2, 1.3, 1.3, 1.77], rows, rh=0.37, fs=8.5, bolds={(4, -1), (5, -1)},
          fills={(4, -1): "FFF2E6", (5, -1): "FFF2E6"})
 notes(sB, f"""정제기 2대 운전 예시입니다. 설비별 투입 간격 {ti:.1f} h는 월 Capa. {f1(CM)} kg ÷ 190 = {tbm:.1f} Batch를 평균 월 730 h에 2대로 나눈 역산값이고, 정제기 2 시차 {toff:.0f} h는 설명용 가정입니다. 실제 투입 간격은 초류 진행과 충진 처리능력을 보고 정합니다.
 30일(720 h) 안에 FQC가 끝나는 Batch는 {tb:.0f}개({f0(tb * KGB)} kg)이고, 월평균 730 h 기준으로는 {tbm:.1f} Batch = {f0(CM)} kg입니다.
@@ -424,16 +422,16 @@ header(sV, 5, "2027~2028 생산 계획 버전 비교",
        f"'28 말 재고 — ① Capa. 기준 {sg(va[8])} kg · ② 기존 생산계획 {sg(vb[8])} kg")
 sec(sV, 1.05, "① 연간 생산 · 출하 · 재고 (kg)", f"재고 = 전월 재고 + 생산 − 출하 · 2027.1.1 기초재고 {f0(INV0)} kg")
 rows = [["버전", "2027 생산", "2027 출하", "차이", "2028 생산", "2028 출하", "차이", "'27 말 재고", "'28 말 재고", "최저 재고 (시점)"]]
-for v_, lab in ((va, "① Capa. 기준 (2027 47.2톤 · 2028 50.2톤)"), (vb, "② 기존 생산계획")):
+for v_, lab in ((va, "① Capa. 기준 (47.2 / 50.2톤)"), (vb, "② 기존 생산계획")):
     rows.append([lab, f0(v_[1]), f0(v_[2]), sg(v_[3]), f0(v_[4]), f0(v_[5]), sg(v_[6]), sg(v_[7]), sg(v_[8]), f"{sg(v_[9])} ('{v_[10]:%y.%-m})"])
 cl = {(i, j): "385723" for i in (1, 2) for j in (3, 6, 7, 8, 9) if rows[i][j].startswith("+")}
-mk_table(sV, 0.31, 1.33, [2.55, 0.75, 0.75, 0.7, 0.75, 0.75, 0.7, 0.78, 0.78, 1.06], rows, rh=0.3, fs=7,
+mk_table(sV, 0.31, 1.33, [2.2, 0.78, 0.78, 0.72, 0.78, 0.78, 0.72, 0.8, 0.8, 1.01], rows, rh=0.34, fs=8,
          bolds={(i, j) for i in (1, 2) for j in (3, 6, 7, 8, 9)}, colors=cl)
 ser = [[vw.cell(row=12 + i, column=3 + k).value for k in range(24)] for i in range(5)]
-labs = ("출하", "① 생산 (Capa. 기준)", "① 재고", "② 생산 (기존 생산계획)", "② 재고")
-for bi, (yr, y0) in enumerate(((2027, 2.45), (2028, 4.62))):
+labs = ("출하", "① 생산", "① 재고", "② 생산", "② 재고")
+for bi, (yr, y0) in enumerate(((2027, 2.5), (2028, 4.66))):
     sec(sV, y0, f"{'②③'[bi]} {yr} 월별 생산 · 재고 (kg)")
-    rows = [["구분"] + [f"{m}월" for m in range(1, 13)] + ["연간 / 연말"]]
+    rows = [["구분"] + [f"{m}월" for m in range(1, 13)] + ["연간"]]
     for i, lab in enumerate(labs):
         vals = ser[i][bi * 12:(bi + 1) * 12]
         if "재고" in lab:
@@ -441,27 +439,27 @@ for bi, (yr, y0) in enumerate(((2027, 2.45), (2028, 4.62))):
         else:
             rows.append([lab] + [f0(v) if abs(v - round(v)) < 1e-6 else f1(v) for v in vals] + [f0(sum(vals))])
     cl = {(i, j): "385723" for i in (3, 5) for j in range(1, 14) if rows[i][j].startswith("+")}
-    mk_table(sV, 0.31, y0 + 0.28, [1.62] + [0.585] * 12 + [0.73], rows, rh=0.27, fs=6.6, colors=cl,
+    mk_table(sV, 0.31, y0 + 0.28, [1.1] + [0.62] * 12 + [0.83], rows, rh=0.29, fs=7.6, colors=cl,
              bolds={(3, -1), (5, -1)}, fills={(1, -1): "F2F2F2", (3, -1): "FFF2E6", (5, -1): "EAF1FB"})
 notes(sV, f"""두 버전을 같은 출하계획(2027 {va[2] / 1000:.2f}톤, 2028 {va[5] / 1000:.2f}톤)과 비교했습니다. 2027년 1~4월은 확정 생산(2,178 · 2,178 · 3,168 · 1,188 kg)으로 두 버전이 같고, 재고는 2027.1.1 기초재고 {f0(INV0)} kg에서 시작해 전월 재고 + 생산 − 출하로 이어집니다.
 ① Capa. 기준: 2027년 5~12월 47,200 ÷ 11 = {f1(CM)} kg/월, 2028년 105℃ 50,200 ÷ 11 = {f1(CM105)} kg/월(4월 대정비 {f0(MK)} kg 별도). 2027년 {sg(va[3])} kg, 2028년 {sg(va[6])} kg. 4월 대정비 달에 재고가 {sg(va[9])} kg까지 내려가고, '27 말 {sg(va[7])} kg, '28 말 {sg(va[8])} kg입니다.
 ② 기존 생산계획: 2027년 5~12월 3,564 kg, 2028년 3,564 kg(4월 1,188 · 8~12월 3,168 kg). 2027년 {sg(vb[3])} kg, 2028년 {sg(vb[6])} kg으로 '27 말 {sg(vb[7])} kg, '28 말 {sg(vb[8])} kg까지 부족이 커집니다.""")
 
 # ============================================================ 6~9. 연도별 · 버전별
-TITLES = {("A", 2027): ("2027년 생산·출하 ① Capa. 기준 (47.2톤)", f"1~4월 확정 · 5~12월 47,200 ÷ 11 = {f1(CM)} kg · 기초재고 {f0(V('INV_0'))} kg"),
-          ("B", 2027): ("2027년 생산·출하 ② 기존 생산계획", f"1~4월 확정 · 5~12월 3,564 kg · 기초재고 {f0(V('INV_0'))} kg"),
-          ("A", 2028): ("2028년 생산·출하 ① Capa. 기준 (50.2톤)", f"105℃ 50,200 ÷ 11 = {f1(CM105)} kg · 4월 대정비 {f0(MK)} kg · 재고는 '27 말에서 이어짐"),
-          ("B", 2028): ("2028년 생산·출하 ② 기존 생산계획", "3,564 kg · 4월 1,188 · 8~12월 3,168 kg · 재고는 '27 말에서 이어짐")}
+TITLES = {("A", 2027): ("2027년 ① Capa. 기준 (47.2톤)", f"1~3월 확정 · 4월 대정비 {f0(MK)} · 5~12월 47,200 ÷ 11 = {f1(CM)} kg"),
+          ("B", 2027): ("2027년 ② 기존 생산계획", f"1~3월 확정 · 4월 대정비 {f0(MK)} · 5~12월 3,564 kg"),
+          ("A", 2028): ("2028년 ① Capa. 기준 (50.2톤)", f"4월 대정비 {f0(MK)} · 나머지 11개월 50,200 ÷ 11 = {f1(CM105)} kg"),
+          ("B", 2028): ("2028년 ② 기존 생산계획", f"4월 대정비 {f0(MK)} · 1~7월 3,564 · 8~12월 3,168 kg")}
 year_slides = []
 for num, (ver, yr) in enumerate((("A", 2027), ("B", 2027), ("A", 2028), ("B", 2028)), start=6):
     s = new_slide(); year_slides.append(s)
-    g = {k: mrow(ver, yr, k) for k in ("cond", "plan", "pb", "diff", "inv", "hx", "cx", "ez", "hs", "ship", "nb", "l2m", "g5h", "l2h", "ezc", "hsc")}
+    g = {k: mrow(ver, yr, k) for k in ("cond", "plan", "pb", "diff", "inv", "hx", "cx", "ez", "hs", "ship", "nb", "l2m")}
     pl, sh_, df, inv = g["plan"][1], g["ship"][1], g["diff"][1], g["inv"][0]
     lowv = min(inv); lowm = inv.index(lowv) + 1
     ttl, basis = TITLES[(ver, yr)]
     stock = f"연말 재고 {sg(inv[-1])} kg" + (f" ({lowm}월 {sg(lowv)})" if (lowv < 0 and lowm < 12) else "")
     header(s, num, ttl, f"생산 {pl / 1000:.2f}톤 vs 출하 {sh_ / 1000:.2f}톤 → {sg(df)} kg · {stock}")
-    sec(s, 1.05, f"① {yr} 월별 생산 · 출하 · 재고 (kg)", basis)
+    sec(s, 1.05, f"① 월별 생산 · 출하 · 재고 (kg)", basis)
     conds = g["cond"][0]
     spans, a = [], 0
     for m in range(1, 13):
@@ -471,15 +469,14 @@ for num, (ver, yr) in enumerate((("A", 2027), ("B", 2027), ("A", 2028), ("B", 20
     for a_, b_, t_ in spans:
         crow[a_] = t_
     rows = [["구분"] + [f"{m}월" for m in range(1, 13)] + ["연간"], crow]
-    spec = (("plan", "생산", f1, f0), ("pb", "Batch 환산 (÷190)", f1, f1), ("diff", "생산 − 출하", sg, sg),
-            ("inv", "재고 (전월 재고 + 생산 − 출하)", sg, sg), ("hx", "■ SK하이닉스", f1, f0), ("cx", "■ CXMT", f0, f0),
-            ("ez", "■ 이지켐", f0, f0), ("hs", "■ 한솔", f0, f0), ("ship", "출하 합계", f1, f0), ("nb", "필요 Batch (출하÷190)", f1, f1),
-            ("l2m", "200 L 충진 방식 (이지켐/한솔)", str, str), ("g5h", "5 Gal 충진 h", f0, f0), ("l2h", "200 L 충진 h (8 h/용기)", f0, f0),
-            ("ezc", "이지켐 용기 (140 kg)", f0, f0), ("hsc", "한솔 용기 (150 kg)", f0, f0))
+    spec = (("plan", "생산", f1, f0), ("pb", "Batch (÷190)", f1, f1), ("diff", "생산 − 출하", sg, sg),
+            ("inv", "재고", sg, sg), ("hx", "SK하이닉스", f0, f0), ("cx", "CXMT", f0, f0),
+            ("ez", "이지켐", f0, f0), ("hs", "한솔", f0, f0), ("ship", "출하 합계", f0, f0), ("nb", "필요 Batch", f1, f1),
+            ("l2m", "200 L 충진", lambda v: v.replace(" ", ""), str))
     for key, lab, fm, ft in spec:
         vals, tot = g[key]
         if key == "plan":
-            cells = [f0(v) if abs(v - round(v)) < 1e-6 else f1(v) for v in vals]
+            cells = [f0(v) for v in vals]
         else:
             cells = [fm(v) for v in vals]
         rows.append([lab] + cells + [ft(tot) if key != "inv" else sg(vals[-1])])
@@ -496,7 +493,7 @@ for num, (ver, yr) in enumerate((("A", 2027), ("B", 2027), ("A", 2028), ("B", 20
         for j in range(1, 14):
             if rows[ri][j].startswith("+"):
                 colors[(ri, j)] = "385723"
-    mk_table(s, 0.31, 1.32, [1.75] + [0.575] * 12 + [0.72], rows, rh=0.295, fs=6.8,
+    mk_table(s, 0.31, 1.32, [1.15] + [0.615] * 12 + [0.84], rows, rh=0.38, fs=8.2,
              merges=[(1, a_, b_) for a_, b_, t_ in spans if b_ > a_], fills=fills, colors=colors,
              bolds={(2, -1), (5, -1), (10, -1), (1, -1)})
     ez_m = g["ez"][0]
@@ -520,11 +517,11 @@ peak = max(l27["gbld"] + l28["gbld"])
 header(sL, 10, "후공정 부하 검토 — 충진 · 검사 · OQC", f"정제능력과 출하능력은 별개 · 5 Gal 충진 최대 월 {max(l27['g5h'] + l28['g5h']):.0f} h = 1교대 {l27['gbav'][0]:.0f} h의 {peak * 100:.0f}%")
 sec(sL, 1.05, "① 월 작업량 (출하계획 기준)", "출하 물량으로 계산 — 생산 버전과 무관")
 cols = (("'27.1~2", l27, 0), ("'27.3~6", l27, 2), ("'27.7~12", l27, 6), ("'28 (월)", l28, 0))
-items = (("5 Gal 병 (하이닉스+CXMT)", "g5bt", f0, "20 kg/병"), ("5 Gal 충진 h", "g5h", f0, "2 h/병 · 글로브 박스"),
-         ("글로브 박스 1교대 가용 h", "gbav", f0, "8 h × 22일 (교대 확대 시 증가)"), ("글로브 박스 부하율", "gbld", lambda v: f"{v * 100:.0f}%", "1교대 기준"),
-         ("200 L 용기 (이지켐 + 한솔)", None, f0, "140 kg · 150 kg/용기"), ("200 L 충진 h", "l2h", f0, "8 h/용기 (ARS 실측 전)"),
-         ("OQC·출하 h (5 Gal + 200 L)", None, f0, "9병 2 h · 1용기 2 h"), ("PQC~이송 · FQC h", "qch", f0, "8 h × 필요 Batch"),
-         ("필요 Batch (출하 ÷ 190)", "nb", f1, ""))
+items = (("5 Gal 병", "g5bt", f0, "하이닉스 + CXMT ÷ 20 kg"), ("5 Gal 충진 h", "g5h", f0, "2 h/병"),
+         ("글로브 박스 가용 h", "gbav", f0, "1교대 8 h × 22일"), ("글로브 박스 부하율", "gbld", lambda v: f"{v * 100:.0f}%", "1교대 기준"),
+         ("200 L 용기", None, f0, "이지켐 140 · 한솔 150 kg"), ("200 L 충진 h", "l2h", f0, "8 h/용기"),
+         ("OQC·출하 h", None, f0, "9병 2 h · 1용기 2 h"), ("검사 h (PQC~FQC)", "qch", f0, "8 h × 필요 Batch"),
+         ("필요 Batch", "nb", f1, "출하 ÷ 190"))
 rows = [["항목"] + [c[0] for c in cols] + ["기준"]]
 for lab, key, fm, basis in items:
     row_ = [lab]
@@ -538,15 +535,15 @@ for lab, key, fm, basis in items:
         row_.append(fm(v))
     rows.append(row_ + [basis])
 cl = {(4, j): REDC for j in range(1, 5) if float(rows[4][j].rstrip("%")) > 100}
-mk_table(sL, 0.31, 1.33, [2.4, 1.05, 1.05, 1.05, 1.05, 2.77], rows, rh=0.255, fs=7, left_cols=(0, 5), bolds={(2, -1), (4, -1)}, colors=cl)
-sec(sL, 4.05, "② 병목 검토")
-rows = [["자원", "현재 기준", "리플럭스 이후", "확인 필요"],
-        ["5 Gal 글로브 박스", "2 h/병 · 9병 18 h · 현장 약 2일", "월 최대 267 h — 1교대 176 h 초과", "교대 · 충진 인원 · 글로브 박스 수 · 18 h → 9 h 방안"],
-        ["200 L 충진 (이지켐 · 한솔)", "수동 8 h/용기", "ARS '27.7~ · 전체 시간은 수동과 비슷할 수 있음", "용기 준비 · 투입·반출 · 퍼지 · 충진 · 전환 시간 실측"],
-        ["검사 (PQC · FQC)", "PQC~이송 6 h · FQC 2 h / Batch", "Batch 증가 · 두 정제기 회수 시점 겹침", "검사 인력 · 승인 대기시간"],
-        ["Product Tank", "PQC 합격 후 이송", "두 정제기 제품 보관", "Tank 수 · 용량 · 회전"],
-        ["충진 · 포장", "5 Gal 1 Batch 약 2일", "개선 방향 1~1.5일", "개선 방안 · 일정 (현재 미반영)"]]
-mk_table(sL, 0.31, 4.33, [1.75, 2.25, 2.6, 2.77], rows, rh=0.4, fs=6.8, left_cols=(0, 1, 2, 3), wrap=True, rh_list=[0.24] + [0.42] * 5)
+mk_table(sL, 0.31, 1.33, [2.3, 1.05, 1.05, 1.05, 1.05, 2.87], rows, rh=0.28, fs=8, left_cols=(0, 5), bolds={(2, -1), (4, -1)}, colors=cl)
+sec(sL, 4.30, "② 병목 검토")
+rows = [["자원", "현재", "리플럭스 이후", "확인 필요"],
+        ["5 Gal 글로브 박스", "9병 18 h (약 2일)", "월 267 h > 1교대 176 h", "교대 · 인원 · 글로브 박스 수"],
+        ["200 L 충진", "수동 8 h/용기", "ARS '27.7~ (시간 비슷할 수 있음)", "ARS 단계별 시간 실측"],
+        ["검사 (PQC · FQC)", "8 h/Batch", "Batch 증가 · 회수 시점 겹침", "검사 인력 · 승인 대기"],
+        ["Product Tank", "PQC 합격 후 이송", "정제기 2대 제품 보관", "Tank 수 · 용량"],
+        ["충진 · 포장", "1 Batch 약 2일", "목표 1~1.5일", "개선 방안 · 일정"]]
+mk_table(sL, 0.31, 4.58, [1.9, 2.0, 2.7, 2.77], rows, rh=0.35, fs=8, left_cols=(0, 1, 2, 3))
 notes(sL, f"""후공정 작업량은 출하 물량으로 계산했습니다. 5 Gal은 (하이닉스 + CXMT) ÷ 20 kg × 2 h, 200 L은 이지켐 140 kg · 한솔 150 kg 용기 × 8 h(수동 기준)입니다.
 2027년 하반기부터 5 Gal 충진이 월 약 267 h로 1교대(8 h × 22일 = 176 h)를 넘습니다. 정제기가 2대가 되어도 충진·검사·Tank가 따라오지 못하면 출하량은 늘지 않으므로 교대·인원 계획이 함께 필요합니다.
 ARS는 실제 충진은 더 길 수 있지만 용기 투입·반출·퍼지를 포함하면 수동과 전체 시간이 비슷할 수 있다는 설명이 있어, 실측 전까지 수동 8 h를 그대로 적용했습니다. ARS 효과는 Capa.에 더하지 않았습니다.
@@ -554,13 +551,13 @@ ARS는 실제 충진은 더 길 수 있지만 용기 투입·반출·퍼지를 �
 
 # ============================================================ 11. 생산팀 확인 사항
 sC = new_slide()
-header(sC, 11, "생산팀 확인 사항", "생산팀 대화 내용 정리 — 자료 반영 기준과 추가 확인 항목")
+header(sC, 11, "생산팀 확인 사항", "생산팀 대화 내용과 추가 확인 항목")
 sec(sC, 1.05, "① 생산·설비·품질·충진 관련 확인 내용")
 cw = wb["09_확인사항"]
-rows = [["구분", "생산팀 설명", "자료 반영", "확인 필요"]]
+rows = [["구분", "생산팀 설명", "확인 필요"]]
 for rr_ in range(6, 20):
-    rows.append([cw.cell(row=rr_, column=c).value for c in range(2, 6)])
-mk_table(sC, 0.31, 1.33, [1.15, 3.55, 2.45, 2.22], rows, fs=6.3, left_cols=(0, 1, 2, 3), wrap=True, rh_list=[0.24] + [0.37] * 14)
+    rows.append([cw.cell(row=rr_, column=c).value for c in (2, 3, 5)])
+mk_table(sC, 0.31, 1.33, [1.35, 4.75, 3.27], rows, fs=7.4, left_cols=(0, 1, 2), wrap=True, rh_list=[0.27] + [0.37] * 14)
 notes(sC, """생산팀과 나눈 대화 중 생산·품질·설비·충진 관련 내용만 정리했습니다. 구두로 언급된 회수량(160~170 kg, 약 220 kg, 195~200 kg)은 운전 조건과 대상이 구분되지 않아 확정 생산량으로 쓰지 않고, 환산 기준은 190 kg/Batch를 유지했습니다.
 수율은 신규 Crude만이 아니라 재투입·Mix를 포함한 총 투입량 기준으로 따로 계산해야 합니다(Excel 09 시트 입력란). '135 · 120'은 단위가 확인되지 않아 생산량으로 입력하지 않았고, '65%에서 5% 상승'도 정의를 확인할 항목입니다.
 이지켐은 색도 때문에 추가 투입을 제한하는 경우가 있어, 고객별 품질·색도 규격과 합격률을 별도로 확인합니다.""")
