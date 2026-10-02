@@ -9,8 +9,6 @@ import sys
 
 import openpyxl
 from pptx import Presentation
-from pptx.chart.data import CategoryChartData
-from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_MARKER_STYLE, XL_TICK_LABEL_POSITION
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.oxml.ns import qn
 from pptx.util import Emu, Inches, Pt
@@ -177,41 +175,6 @@ def mk_table(slide, x, y, colw, rows, rh=0.2, fs=6.5, merges=(), fills=None, col
             sf = etree.SubElement(tcPr, qn("a:solidFill")); etree.SubElement(sf, qn("a:srgbClr")).set("val", bg)
     gf.height = Emu(int(sum(hts) * E))
     return tbl
-
-
-# ------------------------------------------------------------ 차트
-def mk_chart(slide, x, y, w, h, cats, series, kind="line", numfmt="#,##0", neg_red=False, legend=True):
-    cd = CategoryChartData(); cd.categories = cats
-    for name, vals, _ in series:
-        cd.add_series(name, [round(v, 1) for v in vals])
-    ct = {"line": XL_CHART_TYPE.LINE_MARKERS, "col": XL_CHART_TYPE.COLUMN_CLUSTERED}[kind]
-    ch = slide.shapes.add_chart(ct, Inches(x), Inches(y), Inches(w), Inches(h), cd).chart
-    ch.font.size = Pt(6.5); ch.font.name = FONT
-    ch.has_title = False
-    ch.has_legend = legend
-    if legend:
-        ch.legend.position = XL_LEGEND_POSITION.TOP; ch.legend.include_in_layout = False; ch.legend.font.size = Pt(6.5)
-    va = ch.value_axis
-    va.has_major_gridlines = True; va.major_gridlines.format.line.color.rgb = RGBColor.from_string("E7E6E6")
-    va.tick_labels.number_format = numfmt; va.tick_labels.number_format_is_linked = False; va.tick_labels.font.size = Pt(6)
-    va.format.line.fill.background()
-    ca = ch.category_axis; ca.tick_labels.font.size = Pt(6); ca.format.line.color.rgb = RGBColor.from_string("BFBFBF")
-    ca.tick_label_position = XL_TICK_LABEL_POSITION.LOW
-    for s_, (_, vals, colr) in zip(ch.plots[0].series, series):
-        if kind == "line":
-            s_.format.line.color.rgb = RGBColor.from_string(colr); s_.format.line.width = Pt(1.5); s_.smooth = False
-            s_.marker.style = XL_MARKER_STYLE.CIRCLE; s_.marker.size = 3
-            s_.marker.format.fill.solid(); s_.marker.format.fill.fore_color.rgb = RGBColor.from_string(colr)
-            s_.marker.format.line.color.rgb = RGBColor.from_string(colr)
-        else:
-            s_.format.fill.solid(); s_.format.fill.fore_color.rgb = RGBColor.from_string(colr); s_.invert_if_negative = False
-            if neg_red:
-                for i, v in enumerate(vals):
-                    if v < 0:
-                        pt = s_.points[i]; pt.format.fill.solid(); pt.format.fill.fore_color.rgb = RGBColor.from_string(REDC)
-    if kind == "col":
-        ch.plots[0].gap_width = 60; ch.plots[0].overlap = -10
-    return ch
 
 
 # ------------------------------------------------------------ 30일 운전 Gantt
@@ -414,10 +377,10 @@ cl.update({(2, 1): REDC, (3, 4): REDC, (3, 16): REDC, (4, 5): REDC, (4, 13): RED
 mk_table(s2, 0.31, 4.08, [1.6] + [0.43] * 18, rows, rh=0.215, fs=6.3,
          merges=[(0, 1, 12), (0, 13, 18), (2, 1, 3), (4, 5, 12), (4, 13, 15), (4, 17, 18), (5, 1, 6), (5, 7, 18), (6, 13, 18)],
          fills=fl, colors=cl, bolds={(2, 1), (3, 4), (3, 16), (4, 5), (4, 13), (4, 17), (1, -1)}, hdr_rows=1)
-sec(s2, 5.70, "② Capa. 기준 — 대정비 월을 뺀 11개월로 월 기준 산정")
+sec(s2, 5.70, "② Capa. 기준 — 연간 Capa. ÷ 11개월", f"대정비 월(4월)은 {f0(MK)} kg 별도")
 ck = wb["04_Capa기준"]
 rows = [["구분", "연간 (t)", "월 기준 (kg)", "Batch/월", "적용", "산식"]]
-for rr_, f_ in ((6, "26.2 ÷ 12"), (7, f"(47,200 − 대정비 {f0(MK)}) ÷ 11"), (8, f"(50,200 − 대정비 {f0(MK)}) ÷ 11"), (9, "Mix·Premix 준비 등 설비 시간 필요 → 2배 아님")):
+for rr_, f_ in ((6, "26.2 ÷ 12"), (7, f"47,200 ÷ 11 · 대정비 월 {f0(MK)} kg 별도"), (8, f"50,200 ÷ 11 · 대정비 월 {f0(MK)} kg 별도"), (9, "Mix·Premix 준비 등 설비 시간 필요 → 2배 아님")):
     rows.append([ck.cell(row=rr_, column=2).value, f"{ck.cell(row=rr_, column=3).value:.1f}", f1(ck.cell(row=rr_, column=4).value),
                  f"{ck.cell(row=rr_, column=5).value:.1f}", ck.cell(row=rr_, column=6).value, f_])
 mk_table(s2, 0.31, 5.98, [2.2, 0.8, 1.0, 0.8, 0.9, 3.67], rows, rh=0.17, fs=6.5, left_cols=(0, 5), bolds={(2, -1), (3, -1)},
@@ -425,7 +388,7 @@ mk_table(s2, 0.31, 5.98, [2.2, 0.8, 1.0, 0.8, 0.9, 3.67], rows, rh=0.17, fs=6.5,
 notes(s2, f"""리플럭스 이후에는 정제기 2대를 활용합니다. 정제기 1을 먼저 투입·운전하고, 초류 진행에 맞춰 정제기 2를 투입해 두 설비의 운전 구간을 겹칩니다(현장 설명: 다음 날 투입·초류 중간·초류 종료 무렵 — 투입 간격은 미확정).
 정제기별 Batch 시간이 절반으로 줄어드는 것이 아니라 두 설비의 생산을 겹쳐 전체 생산량을 늘리는 방식이며, 제품 회수 시점이 엇갈려 검사·충진 부하가 한꺼번에 몰리지 않습니다. 57 ÷ 2 = 28.5 h는 이상적인 경우의 도착 간격 설명일 뿐 정제기별 Batch 시간이 아닙니다.
 일정: '27.1~3 정제기 1대 확정 생산(2,178 · 2,178 · 3,168 kg) → '27.4 대정비({f0(MK)} kg) → '27.5부터 정제기 2대. 대정비는 매년 4월로 반영했습니다. 200 L ARS는 '27.7부터(이지켐·한솔), 5 Gal은 글로브 박스를 유지합니다.
-Capa.: 26.2 + 21 = 47.2톤/년. 대정비 월이 있으므로 월 기준은 (47,200 − {f0(MK)}) ÷ 11 = {f1(CM)} kg입니다. 2028년은 105℃ 적용(+3톤)으로 50.2톤, 월 {f1(CM105)} kg — 열 안정성·Dimer·Unknown impurity·수율 검증과 승인이 전제입니다.
+Capa.: 26.2 + 21 = 47.2톤/년. 월 기준은 47,200 ÷ 11 = {f1(CM)} kg이고 대정비 월(4월)은 {f0(MK)} kg을 따로 둡니다. 2028년은 105℃ 적용(+3톤)으로 50.2톤, 50,200 ÷ 11 = 월 {f1(CM105)} kg — 열 안정성·Dimer·Unknown impurity·수율 검증과 승인이 전제입니다.
 47.2톤이 현재의 2배(52.4톤)가 아닌 것은 추가 투입용 Mix·Premix 준비 등에 설비 시간이 필요하기 때문이며, 각 요인의 손실량은 아직 정량화되지 않았습니다.
 리플럭스는 하이닉스 요구 품질 대응과 생산능력 확대를 함께 보는 프로젝트입니다. 추가 정제기가 기존 설비 개조인지 신규 설치인지, 설비 번호(2070·2060 등)는 도면과 대조해 확인합니다.""")
 
@@ -448,50 +411,57 @@ mk_table(sB, 0.31, 4.38, [2.2, 0.6, 0.85, 0.95, 0.9, 1.25, 2.62], rows, rh=0.38,
 notes(sB, f"""정제기 2대 운전 예시입니다. 설비별 투입 간격 {ti:.1f} h는 월 Capa. {f1(CM)} kg ÷ 190 = {tbm:.1f} Batch를 평균 월 730 h에 2대로 나눈 역산값이고, 정제기 2 시차 {toff:.0f} h는 설명용 가정입니다. 실제 투입 간격은 초류 진행과 충진 처리능력을 보고 정합니다.
 30일(720 h) 안에 FQC가 끝나는 Batch는 {tb:.0f}개({f0(tb * KGB)} kg)이고, 월평균 730 h 기준으로는 {tbm:.1f} Batch = {f0(CM)} kg입니다.
 두 정제기의 완료 시점이 엇갈려 5 Gal 충진(18 h)과 200 L 충진(8 h)이 겹치지 않게 배치됩니다. 충진은 출하 비중(7월 기준 200 L 약 {CHAN[(2027, 7)] * 100:.0f}%)에 맞춰 일부 Batch를 200 L로 표시했습니다.
-기존 생산계획의 5~12월 3,564 kg은 190 kg 기준 월 18.8 Batch, 설비별 간격 약 {cr(45, 7):.0f} h에 해당합니다. 2028년 105℃ 기준 4,455.6 kg은 월 23.5 Batch입니다.
+기존 생산계획의 5~12월 3,564 kg은 190 kg 기준 월 18.8 Batch, 설비별 간격 약 {cr(45, 7):.0f} h에 해당합니다. 2028년 105℃ 기준 {f1(CM105)} kg은 월 {CM105 / KGB:.1f} Batch입니다.
 Batch 수가 늘어나면 글로브 박스 충진·검사·Tank·포장이 먼저 병목이 될 수 있어, 정제능력과 최종 출하능력은 구분해서 봅니다.""")
 
 # ============================================================ 5. 버전 비교
 sV = new_slide()
 vw = wb["07_버전비교"]
-va = [vw.cell(row=6, column=c).value for c in range(2, 11)]
-vb = [vw.cell(row=7, column=c).value for c in range(2, 11)]
-header(sV, 5, "2027~2028 생산 계획 버전 비교", f"Capa. 기준은 누적 최저 {sg(va[7] / 1000, 2)}톤 ('{va[8]:%y.%-m}) · 기존 생산계획은 {sg(vb[7] / 1000, 2)}톤 ('{vb[8]:%y.%-m})")
-sec(sV, 1.05, "① 연간 생산 vs 출하 (kg)", "누적 = 2027.1부터 (생산 − 출하)")
-rows = [["버전", "2027 생산", "2027 출하", "차이", "2028 생산", "2028 출하", "차이", "24개월 누적 최저", "시점"]]
+va = [vw.cell(row=6, column=c).value for c in range(2, 13)]
+vb = [vw.cell(row=7, column=c).value for c in range(2, 13)]
+INV0 = V("INV_0")
+header(sV, 5, "2027~2028 생산 계획 버전 비교",
+       f"'28 말 재고 — ① Capa. 기준 {sg(va[8])} kg · ② 기존 생산계획 {sg(vb[8])} kg")
+sec(sV, 1.05, "① 연간 생산 · 출하 · 재고 (kg)", f"재고 = 전월 재고 + 생산 − 출하 · 2027.1.1 기초재고 {f0(INV0)} kg")
+rows = [["버전", "2027 생산", "2027 출하", "차이", "2028 생산", "2028 출하", "차이", "'27 말 재고", "'28 말 재고", "최저 재고 (시점)"]]
 for v_, lab in ((va, "① Capa. 기준 (2027 47.2톤 · 2028 50.2톤)"), (vb, "② 기존 생산계획")):
-    rows.append([lab, f0(v_[1]), f0(v_[2]), sg(v_[3]), f0(v_[4]), f0(v_[5]), sg(v_[6]), sg(v_[7]), f"'{v_[8]:%y.%-m}"])
-mk_table(sV, 0.31, 1.33, [2.75, 0.8, 0.8, 0.75, 0.8, 0.8, 0.75, 0.97, 0.95], rows, rh=0.3, fs=7.2, bolds={(1, 3), (1, 6), (1, 7), (2, 3), (2, 6), (2, 7)},
-         colors={(1, 6): "385723"})
-cats = [f"{y % 100}.{m}" for y in (2027, 2028) for m in range(1, 13)]
-ser = [[vw.cell(row=11 + i, column=3 + k).value for k in range(24)] for i in range(5)]
-sec(sV, 2.45, "② 월 생산 vs 출하 (kg)")
-sec(sV, 2.45, "③ 누적 (생산 − 출하, kg)", x=5.10)
-mk_chart(sV, 0.31, 2.72, 4.7, 4.05, cats, [("Capa. 기준 생산", ser[0], ORG), ("기존 생산계획", ser[1], BLU), ("출하", ser[2], "404040")])
-mk_chart(sV, 5.10, 2.72, 4.6, 4.05, cats, [("Capa. 기준", ser[3], ORG), ("기존 생산계획", ser[4], BLU)])
-notes(sV, f"""두 버전을 같은 출하계획(2027 43.40톤, 2028 45.76톤)에 비교했습니다. 2027년 1~4월은 확정 생산(2,178 · 2,178 · 3,168 · 1,188 kg)으로 두 버전이 같습니다.
-① Capa. 기준: 2027년 5~12월 {f1(CM)} kg/월(47.2톤 기준), 2028년 105℃ 50.2톤 기준 {f1(CM105)} kg/월(4월 대정비 {f0(MK)} kg). 2027년 {sg(va[3] / 1000, 2)}톤, 2028년 {sg(va[6] / 1000, 2)}톤. 누적 최저는 '{va[8]:%y.%-m} {sg(va[7])} kg으로, 2027년 1월 기초재고가 약 {-va[7] / 1000:.1f}톤 있어야 결품 없이 대응할 수 있습니다.
-② 기존 생산계획: 2027년 5~12월 3,564 kg, 2028년 3,564 kg(4월 1,188 · 8~12월 3,168 kg) — 2027년 {vb[1] / 1000:.2f}톤, 2028년 {vb[4] / 1000:.2f}톤. 출하 대비 2027년 {sg(vb[3] / 1000, 2)}톤, 2028년 {sg(vb[6] / 1000, 2)}톤으로 누적 부족이 계속 커져 '{vb[8]:%y.%-m} {sg(vb[7])} kg입니다.
-누적은 양품률 100% 기준이므로 실제 필요 재고는 합격률과 목표재고를 반영하면 더 커집니다.""")
+    rows.append([lab, f0(v_[1]), f0(v_[2]), sg(v_[3]), f0(v_[4]), f0(v_[5]), sg(v_[6]), sg(v_[7]), sg(v_[8]), f"{sg(v_[9])} ('{v_[10]:%y.%-m})"])
+cl = {(i, j): "385723" for i in (1, 2) for j in (3, 6, 7, 8, 9) if rows[i][j].startswith("+")}
+mk_table(sV, 0.31, 1.33, [2.55, 0.75, 0.75, 0.7, 0.75, 0.75, 0.7, 0.78, 0.78, 1.06], rows, rh=0.3, fs=7,
+         bolds={(i, j) for i in (1, 2) for j in (3, 6, 7, 8, 9)}, colors=cl)
+ser = [[vw.cell(row=12 + i, column=3 + k).value for k in range(24)] for i in range(5)]
+labs = ("출하", "① 생산 (Capa. 기준)", "① 재고", "② 생산 (기존 생산계획)", "② 재고")
+for bi, (yr, y0) in enumerate(((2027, 2.45), (2028, 4.62))):
+    sec(sV, y0, f"{'②③'[bi]} {yr} 월별 생산 · 재고 (kg)")
+    rows = [["구분"] + [f"{m}월" for m in range(1, 13)] + ["연간 / 연말"]]
+    for i, lab in enumerate(labs):
+        vals = ser[i][bi * 12:(bi + 1) * 12]
+        if "재고" in lab:
+            rows.append([lab] + [sg(v) for v in vals] + [sg(vals[-1])])
+        else:
+            rows.append([lab] + [f0(v) if abs(v - round(v)) < 1e-6 else f1(v) for v in vals] + [f0(sum(vals))])
+    cl = {(i, j): "385723" for i in (3, 5) for j in range(1, 14) if rows[i][j].startswith("+")}
+    mk_table(sV, 0.31, y0 + 0.28, [1.62] + [0.585] * 12 + [0.73], rows, rh=0.27, fs=6.6, colors=cl,
+             bolds={(3, -1), (5, -1)}, fills={(1, -1): "F2F2F2", (3, -1): "FFF2E6", (5, -1): "EAF1FB"})
+notes(sV, f"""두 버전을 같은 출하계획(2027 {va[2] / 1000:.2f}톤, 2028 {va[5] / 1000:.2f}톤)과 비교했습니다. 2027년 1~4월은 확정 생산(2,178 · 2,178 · 3,168 · 1,188 kg)으로 두 버전이 같고, 재고는 2027.1.1 기초재고 {f0(INV0)} kg에서 시작해 전월 재고 + 생산 − 출하로 이어집니다.
+① Capa. 기준: 2027년 5~12월 47,200 ÷ 11 = {f1(CM)} kg/월, 2028년 105℃ 50,200 ÷ 11 = {f1(CM105)} kg/월(4월 대정비 {f0(MK)} kg 별도). 2027년 {sg(va[3])} kg, 2028년 {sg(va[6])} kg. 4월 대정비 달에 재고가 {sg(va[9])} kg까지 내려가고, '27 말 {sg(va[7])} kg, '28 말 {sg(va[8])} kg입니다.
+② 기존 생산계획: 2027년 5~12월 3,564 kg, 2028년 3,564 kg(4월 1,188 · 8~12월 3,168 kg). 2027년 {sg(vb[3])} kg, 2028년 {sg(vb[6])} kg으로 '27 말 {sg(vb[7])} kg, '28 말 {sg(vb[8])} kg까지 부족이 커집니다.""")
 
 # ============================================================ 6~9. 연도별 · 버전별
-TITLES = {("A", 2027): ("2027년 생산·출하 ① Capa. 기준 (47.2톤)", "1~4월 확정 · 5~12월 (47,200 − 1,188) ÷ 11"),
-          ("B", 2027): ("2027년 생산·출하 ② 기존 생산계획", "1~4월 확정 · 5~12월 3,564 kg/월"),
-          ("A", 2028): ("2028년 생산·출하 ① Capa. 기준 (50.2톤)", "105℃ · 4월 대정비 1,188 kg · 나머지 (50,200 − 1,188) ÷ 11"),
-          ("B", 2028): ("2028년 생산·출하 ② 기존 생산계획", "3,564 kg/월 · 4월 1,188 · 8~12월 3,168 kg")}
+TITLES = {("A", 2027): ("2027년 생산·출하 ① Capa. 기준 (47.2톤)", f"1~4월 확정 · 5~12월 47,200 ÷ 11 = {f1(CM)} kg · 기초재고 {f0(V('INV_0'))} kg"),
+          ("B", 2027): ("2027년 생산·출하 ② 기존 생산계획", f"1~4월 확정 · 5~12월 3,564 kg · 기초재고 {f0(V('INV_0'))} kg"),
+          ("A", 2028): ("2028년 생산·출하 ① Capa. 기준 (50.2톤)", f"105℃ 50,200 ÷ 11 = {f1(CM105)} kg · 4월 대정비 {f0(MK)} kg · 재고는 '27 말에서 이어짐"),
+          ("B", 2028): ("2028년 생산·출하 ② 기존 생산계획", "3,564 kg · 4월 1,188 · 8~12월 3,168 kg · 재고는 '27 말에서 이어짐")}
 year_slides = []
 for num, (ver, yr) in enumerate((("A", 2027), ("B", 2027), ("A", 2028), ("B", 2028)), start=6):
     s = new_slide(); year_slides.append(s)
-    g = {k: mrow(ver, yr, k) for k in ("cond", "plan", "pb", "hx", "cx", "ez", "hs", "ship", "diff", "cum", "nb", "g5h", "l2h", "ezc", "hsc")}
-    pl, sh_, df, cu = g["plan"][1], g["ship"][1], g["diff"][1], g["cum"][0]
-    lowv = min(cu); lowm = cu.index(lowv) + 1
+    g = {k: mrow(ver, yr, k) for k in ("cond", "plan", "pb", "diff", "inv", "hx", "cx", "ez", "hs", "ship", "nb", "l2m", "g5h", "l2h", "ezc", "hsc")}
+    pl, sh_, df, inv = g["plan"][1], g["ship"][1], g["diff"][1], g["inv"][0]
+    lowv = min(inv); lowm = inv.index(lowv) + 1
     ttl, basis = TITLES[(ver, yr)]
-    sub = f"생산 {pl / 1000:.2f}톤 vs 출하 {sh_ / 1000:.2f}톤 → {sg(df / 1000, 2)}톤 · 누적 " + (
-        f"최저 {sg(lowv / 1000, 2)}톤 ('{yr % 100}.{lowm})" if lowv < 0 else f"연말 {sg(cu[-1] / 1000, 2)}톤")
-    if yr == 2028:
-        sub = f"생산 {pl / 1000:.2f}톤 vs 출하 {sh_ / 1000:.2f}톤 → {sg(df / 1000, 2)}톤 · '27.1부터 누적 연말 {sg(cu[-1] / 1000, 2)}톤"
-    header(s, num, ttl, sub)
-    sec(s, 1.05, f"① {yr} 월별 생산 · 출하 · 충진 (kg)", basis)
+    stock = f"연말 재고 {sg(inv[-1])} kg" + (f" ({lowm}월 {sg(lowv)})" if (lowv < 0 and lowm < 12) else "")
+    header(s, num, ttl, f"생산 {pl / 1000:.2f}톤 vs 출하 {sh_ / 1000:.2f}톤 → {sg(df)} kg · {stock}")
+    sec(s, 1.05, f"① {yr} 월별 생산 · 출하 · 재고 (kg)", basis)
     conds = g["cond"][0]
     spans, a = [], 0
     for m in range(1, 13):
@@ -501,18 +471,19 @@ for num, (ver, yr) in enumerate((("A", 2027), ("B", 2027), ("A", 2028), ("B", 20
     for a_, b_, t_ in spans:
         crow[a_] = t_
     rows = [["구분"] + [f"{m}월" for m in range(1, 13)] + ["연간"], crow]
-    spec = (("plan", "생산", f1, f0), ("pb", "Batch 환산 (÷190)", f1, f1), ("hx", "■ SK하이닉스", f1, f0), ("cx", "■ CXMT", f0, f0),
-            ("ez", "■ 이지켐", f0, f0), ("hs", "■ 한솔", f0, f0), ("ship", "출하 합계", f1, f0), ("diff", "생산 − 출하", sg, sg),
-            ("cum", "누적 (생산 − 출하) '27.1~", sg, sg), ("nb", "필요 Batch (출하÷190)", f1, f1), ("g5h", "5 Gal 충진 h", f0, f0),
-            ("l2h", "200 L 충진 h (8 h/용기)", f0, f0), ("ezc", "이지켐 용기 (140 kg)", f0, f0), ("hsc", "한솔 용기 (150 kg)", f0, f0))
+    spec = (("plan", "생산", f1, f0), ("pb", "Batch 환산 (÷190)", f1, f1), ("diff", "생산 − 출하", sg, sg),
+            ("inv", "재고 (전월 재고 + 생산 − 출하)", sg, sg), ("hx", "■ SK하이닉스", f1, f0), ("cx", "■ CXMT", f0, f0),
+            ("ez", "■ 이지켐", f0, f0), ("hs", "■ 한솔", f0, f0), ("ship", "출하 합계", f1, f0), ("nb", "필요 Batch (출하÷190)", f1, f1),
+            ("l2m", "200 L 충진 방식 (이지켐/한솔)", str, str), ("g5h", "5 Gal 충진 h", f0, f0), ("l2h", "200 L 충진 h (8 h/용기)", f0, f0),
+            ("ezc", "이지켐 용기 (140 kg)", f0, f0), ("hsc", "한솔 용기 (150 kg)", f0, f0))
     for key, lab, fm, ft in spec:
         vals, tot = g[key]
         if key == "plan":
             cells = [f0(v) if abs(v - round(v)) < 1e-6 else f1(v) for v in vals]
         else:
             cells = [fm(v) for v in vals]
-        rows.append([lab] + cells + [ft(tot)])
-    fills = {(0, -1): "595959"}
+        rows.append([lab] + cells + [ft(tot) if key != "inv" else sg(vals[-1])])
+    fills = {(0, -1): "595959", (5, -1): "FFF2E6"}
     for a_, b_, t_ in spans:
         fills[(1, a_)] = {"대정비": "D9D9D9", "정제기 1대": "F2F2F2"}.get(t_, "FDE9E7")
     for m in range(1, 13):
@@ -521,28 +492,24 @@ for num, (ver, yr) in enumerate((("A", 2027), ("B", 2027), ("A", 2028), ("B", 20
         elif yr == 2027 and m <= 4:
             fills[(2, m)] = "DDEBF7"
     colors = {(1, a_): REDC for a_, b_, t_ in spans if t_ == "대정비"}
-    for ri in (9, 10):
+    for ri in (4, 5):
         for j in range(1, 14):
             if rows[ri][j].startswith("+"):
                 colors[(ri, j)] = "385723"
-    mk_table(s, 0.31, 1.32, [1.62] + [0.585] * 12 + [0.73], rows, rh=0.19, fs=6.3,
+    mk_table(s, 0.31, 1.32, [1.75] + [0.575] * 12 + [0.72], rows, rh=0.295, fs=6.8,
              merges=[(1, a_, b_) for a_, b_, t_ in spans if b_ > a_], fills=fills, colors=colors,
-             bolds={(2, -1), (8, -1), (10, -1), (1, -1)})
-    sec(s, 4.55, "② 월 생산 vs 출하 (kg)"); sec(s, 4.55, "③ 누적 (생산 − 출하, kg)", x=5.10)
-    mc = [f"{m}월" for m in range(1, 13)]
-    mk_chart(s, 0.31, 4.82, 4.7, 2.0, mc, [("생산", g["plan"][0], ORG if ver == "A" else BLU), ("출하", g["ship"][0], "A6A6A6")], kind="col")
-    mk_chart(s, 5.10, 4.82, 4.6, 2.0, mc, [("누적", cu, "385723")], kind="col", neg_red=True, legend=False)
+             bolds={(2, -1), (5, -1), (10, -1), (1, -1)})
     ez_m = g["ez"][0]
     notes(s, (f"{ttl}. 생산 {f0(pl)} kg, 출하 {f0(sh_)} kg, 차이 {sg(df)} kg. " +
               ("2027년 1~4월은 확정 생산(2,178 · 2,178 · 3,168 · 1,188 kg, 4월 대정비)입니다. " if yr == 2027 else "") +
-              ("5월부터 월 Capa. (47,200 − 1,188) ÷ 11 = " + f1(CM) + " kg을 적용했습니다. " if (ver, yr) == ("A", 2027) else "") +
-              ("105℃ 50.2톤 기준으로 4월 대정비 1,188 kg, 나머지 달 " + f1(CM105) + " kg입니다. 105℃는 품질 검증·승인이 전제입니다. 47.2톤 기준이면 +1.44톤입니다. "
+              ("5월부터 월 Capa. 47,200 ÷ 11 = " + f1(CM) + " kg을 적용했습니다. " if (ver, yr) == ("A", 2027) else "") +
+              ("105℃ 50.2톤 기준으로 50,200 ÷ 11 = " + f1(CM105) + " kg, 4월 대정비 1,188 kg입니다. 105℃는 품질 검증·승인이 전제입니다. "
                if (ver, yr) == ("A", 2028) else "") +
               ("기존 생산계획 수치(3,564 · 3,168 · 2,178 · 1,188 kg)는 198 kg × 정수 Batch(18 · 16 · 11 · 6)와 일치합니다 — 계획 Batch량 기준 확인 필요. "
                if ver == "B" else "") +
-              f"누적은 2027년 1월부터의 (생산 − 출하)이며 최저 {sg(lowv)} kg({yr % 100}.{lowm}월)입니다. 양품률·기초재고가 입력되면 Excel에서 기말재고가 계산됩니다. " +
+              f"재고는 2027.1.1 기초재고 {f0(V('INV_0'))} kg에서 전월 재고 + 생산 − 출하로 이어지며, {yr}년 최저 {sg(lowv)} kg({lowm}월), 연말 {sg(inv[-1])} kg입니다. " +
               f"출하: 하이닉스 22,720 ÷ 12, CXMT {f0(g['cx'][1])}, 이지켐 {f0(g['ez'][1])}, 한솔 {f0(g['hs'][1])} kg. " +
-              ("2028년 물량은 2027년 하반기 수준을 유지한 비교용 가정이며 이지켐은 월 840 kg입니다. " if yr == 2028 else "") +
+              ("이지켐은 7월부터 월 840 kg입니다. " if yr == 2027 else "2028년 물량은 2027년 하반기 수준을 유지한 비교용 가정입니다. ") +
               "200 L 충진은 이지켐·한솔 수동 8 h/용기 기준이며, ARS 시간이 실측되면 Excel 01_입력에서 바뀝니다."))
 
 # ============================================================ 10. 후공정 부하
