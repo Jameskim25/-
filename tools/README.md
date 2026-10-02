@@ -5,7 +5,7 @@
 3. `python inject_cache.py raw.xlsx calc.xlsx SKTC_CpZr_Capacity_RawData_Calculation_2026_2028.xlsx` — 원본 수식에 계산값만 넣어 배포본 생성.
    (LibreOffice가 다시 저장한 파일은 '01_입력'! 등 숫자 시작 시트명의 따옴표가 빠져 Excel 복구 오류가 나므로 배포 금지.)
 4. `python build_pptx.py template/base.pptx calc.xlsx raw.xlsx.map.json SKTC_CpZr_Capacity_Reflux_Roadmap_2027_2028.pptx`
-   — SK trichem 양식의 공정도·머리글을 재사용하고 표·마일스톤·달력 표는 Excel 값으로 작성 (12장, 그래프 없음).
+   — SK trichem 양식의 공정도·머리글을 재사용하고 표·마일스톤·달력 표는 Excel 값으로 작성 (13장, 그래프 없음).
 
 ## Excel 시트
 | 시트 | 내용 |
@@ -20,6 +20,6 @@
 | 10_확인사항 | 생산팀 확인 내용 · 협의 사항 · 조건별 생산량 입력란 |
 | 11_과거Batch_참고 | 2026 생산계획 표시일자 원자료 (참고) |
 
-## PPT 구성 (12장, 그래프 없음)
-1 As-is 공정·마일스톤 · 2 10월 생산계획 완료 주기 · 3 순수 작업 vs 대기 · 4 To-be 공정·Case별 일정 · 5 To-be 운영 마일스톤 ·
-6 Case 비교 · 7~9 Case I / II / III · 10 후공정 부하 · 11 생산팀 협의 사항 · 12 생산팀 확인 사항
+## PPT 구성 (13장, 그래프 없음)
+1 As-is 공정·마일스톤 · 2 10월 생산계획 완료 주기 · 3 순수 작업 vs 대기 · 4 Reflux Column 원리 · 5 To-be 공정·Case별 일정 · 6 To-be 운영 마일스톤 ·
+7 Case 비교 · 8~10 Case I / II / III · 11 후공정 부하 · 12 생산팀 협의 사항 · 13 생산팀 확인 사항
